@@ -15,8 +15,20 @@ pip install https://
 
 ## Basic Usage
 ```bash
-generator.py -r ref_fasta -j DEFAULT -C 11,22,X -C 11,22,X -o out_dir --cov 2
+generator.py -r ref_fasta -j DEFAULT -c 11,22,X -C 11,22,X -o out_dir --cov 2
 ```
+<b>-r</b> the reference fasta file such as hg19, Hg38, human_g1k_v37decoy, etc<br>
 
+<b>-j</b> the full JSON control file which includes Sv type and sizes rates (including seperate linked versus unlinked SNV/MNVs), WCUs that govern the gain and loss probabilities and finally an optional user specified clonal tree topoloy.
+
+<b>-c</b> the chroms from the given reference fasta that should have Variation modeled (default is all)
+
+<b>-C</b> the crhoms from the given reference fasta that will be output (good for testing or producing a small dataset)
+
+<b>-o</b> the output directory where the germline genome file (~2X the size of the reference fasta) as well as the somatic genome file (2/cov) will be stored as well as the matching truth VCF files for each. The somatic VCF file includes the clonal tree topology encoded using the PEDIGREE entries in the header.
 ## Advanced Usage
 ``JSON file format API coming soon...``
+
+## Python API
+``gene_effects, read_utils, variant_utils and sim python modules offer much greater flexibilty in simulating beyond somatic mammalian genomes
+``
