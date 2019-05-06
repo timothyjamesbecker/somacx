@@ -26,6 +26,16 @@ generator.py -r ref_fasta -j DEFAULT -c 11,22,X -C 11,22,X -o out_dir --cov 2
 <b>-C</b> the chroms from the given reference fasta that will be output (good for testing or producing a small dataset)
 
 <b>-o</b> the output directory where the germline genome file (~2X the size of the reference fasta) as well as the somatic genome file (2/cov) will be stored as well as the matching truth VCF files for each. The somatic VCF file includes the clonal tree topology encoded using the PEDIGREE entries in the header.
+
+#### options
+<b>--model</b> a parametric control that controls the tree topology 0.0 will simulate Cancer Stem Cell (CSC) and 1.0 will yeild a balanced subclonal topology
+
+<b>--branch</b> the chance of each node to branch every cycle
+
+<b>--decay</b> the chance of each node to die off every cycle
+
+<b>--cov</b> the desired sequencing coverage so that the user can control the approximate noise level threshold for having alleles of the lowest frequency present
+
 ## Advanced Usage
 ``JSON file format API coming soon...``
 
