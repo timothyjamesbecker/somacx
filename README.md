@@ -19,7 +19,7 @@ generator.py -r ref_fasta -j DEFAULT -c 11,22,X -C 11,22,X -o out_dir --cov 2
 ```
 <b>-r</b> the reference fasta file such as hg19, Hg38, human_g1k_v37decoy, etc<br>
 
-<b>-j</b> the full JSON control file which includes Sv type and sizes rates (including seperate linked versus unlinked SNV/MNVs), WCUs that govern the gain and loss probabilities and finally an optional user specified clonal tree topoloy.
+<b>-j</b> the full JSON control file which includes SV type and sizes rates (including seperate linked versus unlinked SNV/MNVs), A gene map such as refGene.txt.gz, encoded weighted gene list or mask files which we abract to the WCU data structure that governs the gain and loss probabilities of genomic regions and finally an optional user specified clonal tree topoloy.
 
 <b>-c</b> the chroms from the given reference fasta that should have Variation modeled (default is all)
 
