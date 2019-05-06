@@ -10,7 +10,7 @@ python 2.7.11+, cython 0.28+, pysam 0.15+, numpy 1.16+<br>
 
 ## Installation
 ```bash
-pip install https://
+pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.0/somacx-0.1.0.tar.gz
 ```
 
 ## Basic Usage
