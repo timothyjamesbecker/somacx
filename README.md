@@ -1,6 +1,7 @@
+ [![DOI](https://zenodo.org/badge/185091540.svg)](https://zenodo.org/badge/latestdoi/185091540) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Alt text](images/somacx_logo.png?raw=true "somacx") <br>
 ## A pathway based somatic genome generation framework
-(c) 2019 Timothy Becker  [![DOI](https://zenodo.org/badge/185091540.svg)](https://zenodo.org/badge/latestdoi/185091540)
+(c) 2019 Timothy Becker
 ![Alt text](images/clone_tree.png?raw=true "somacx") <br>
 
 
