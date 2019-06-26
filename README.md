@@ -1,6 +1,6 @@
 ![Alt text](images/somacx_logo.png?raw=true "somacx") <br>
 ## A pathway based somatic genome generation framework
-(c) 2019 Timothy Becker,[![DOI](https://zenodo.org/badge/185091540.svg)](https://zenodo.org/badge/latestdoi/185091540)
+(c) 2019 Timothy Becker  [![DOI](https://zenodo.org/badge/185091540.svg)](https://zenodo.org/badge/latestdoi/185091540)
 ![Alt text](images/clone_tree.png?raw=true "somacx") <br>
 
 
