@@ -1,0 +1,14 @@
+dist: bionic
+language: python
+python:
+  - "2.7.15"
+install:
+  - sudo apt-get update
+  - pip install subprocess32
+  - pip install cython
+  - pip install numpy
+  - pip install h5py
+  - pip install pysam
+  - pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.0/somacx-0.1.0.tar.gz
+script:
+  - generator.py -h

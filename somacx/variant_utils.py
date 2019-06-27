@@ -116,7 +116,7 @@ def read_json_anueuploidy(json_path):
 #UCSC refGene table file, merge delta will merge overlaping cds regions by union
 #obtained by direct mysql query:
 #mysql --user=genome -N --host=genome-mysql.cse.ucsc.edu -A -D hg19 -e "select * from refGene" | gzip > refGene.txt.gz
-def build_ucsc_gene_exon_map(refGene,swap=True):
+def build_ucsc_gene_exon_map(refGene,swap=True,tx=False):
     G,E,C,W,raw = {},{},{},{},[]
     fields = {'bin':0,'name':1,'chrom':2,'strand':3,'txStart':4,'txEnd':5,'cdsStart':6,
               'cdsEnd':7,'exonCount':8,'exonStarts':9,'exonEnds':10,'name2':12}
