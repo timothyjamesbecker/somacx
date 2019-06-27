@@ -8,9 +8,15 @@
 ## Requirements
 python 2.7.11+, cython 0.28+, pysam 0.15+, numpy 1.16+<br>
 
-## Installation
+## PIP Installation
 ```bash
 pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.0/somacx-0.1.0.tar.gz
+```
+
+## Docker Installation
+Our repo has a Dockerfile that will build somacx for you or you can easily grab a pre-built image for testing or cloud use:
+```bash
+docker pull timothyjamesbecker/somacx
 ```
 
 ## Basic Usage
