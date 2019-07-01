@@ -190,22 +190,23 @@ gene_map    = vu.read_json_gene_map(out_dir+'/meta/gene_map.json')
 #read a genelist and store as a wcu json file for building the full json
 mitcp_genes = vu.read_gene_list(vu.get_local_path('mitcp_giam_gene_list.txt'))
 mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[0.0 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(vu.get_local_path()+'germline_mitcp_gain_wcu.json',mitcp_wcu)
+vu.write_json_wcu(out_dir+'/meta/'+'germline_mitcp_gain_wcu.json',mitcp_wcu)
 mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[0.0 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(vu.get_local_path()+'germline_mitcp_loss_wcu.json',mitcp_wcu)
+vu.write_json_wcu(out_dir+'/meta/'+'germline_mitcp_loss_wcu.json',mitcp_wcu)
 mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[0.0 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(vu.get_local_path()+'somatic_mitcp_gain_wcu.json',mitcp_wcu)
+vu.write_json_wcu(out_dir+'/meta/'+'somatic_mitcp_gain_wcu.json',mitcp_wcu)
 mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[1E2 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(vu.get_local_path()+'somatic_mitcp_loss_wcu.json',mitcp_wcu)
+vu.write_json_wcu(out_dir+'/meta/'+'somatic_mitcp_loss_wcu.json',mitcp_wcu)
 # #write out a full complex_generator_json from several seperate ones
+
 print('updating the full param file')
-write_complex_generator_json(in_dir=vu.get_local_path()+'/',
+write_complex_generator_json(in_dir=out_dir+'/meta/',
                              json_path='full.json',
                              gene_map='gene_map.json',
-                             g_var_map='g1kp3_var_map.json',
+                             g_var_map='g_var_map.json',
                              g_loss_wild='germline_*_loss_wcu.json',
                              g_gain_wild='germline_*_gain_wcu.json',
-                             s_var_map='somatic_var_map.json',
+                             s_var_map='s_var_map.json',
                              s_loss_wild='somatic_*_loss_wcu.json',
                              s_gain_wild='somatic_*_gain_wcu.json',
                              s_anueuploidy='somatic_anueuploidy.json',
