@@ -239,6 +239,8 @@ if prior_vcf is not None: #via FusorSV_VCF file
     if 'Y' not in vcf_vcam and 'Y' in ks: ks.remove('Y') #update ks
     if 'Y' not in vcf_vcam and 'Y' in rs: rs.remove('Y') #update rs
     if 'Y' not in vcf_vcam: S.pop('Y')
+    print('checking VCF call conflicts')
+    vcf_vcam = vu.vcam_remove_conflicts(vcf_vcam)
     print('variantion is present on: %s'%vcf_vcam.keys())
 
 print('ks = %s rs = %s at germline_genome start'%(ks,rs))

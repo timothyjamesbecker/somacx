@@ -707,15 +707,16 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
                     # 'SVTYPE=DEL;SVLEN=50300;END=2684201;CHR2=1;IMPRECISE;']
                     cdx = [i[0],int(i[1]),get_info_end(i[7]),get_info_type(i[7])]
                     if tuple(cdx) not in M:  # no duplicate entries
-                        i[7] += ';SVLEN=%s'%(cdx[2]-cdx[1]+1)
                         if cdx[3]=='INS':
                             if abs(cdx[2]-cdx[1])<small:
                                 cdx[2] = cdx[1]+int(np.random.uniform(0.5*small,1.5*small,1))
                                 alt = gen_alt_seq(ru.read_fasta_substring(ref_path,cdx[0],cdx[1],cdx[2]))
                                 ref = 'N'
+                                i[7] = i[7].rsplit('END=')[0]+'END='+';'.join(i[7].rsplit('END=')[-1].rsplit(';')[1:])
                         else:
                             alt = i[4]
                             ref = i[3]
+                        i[7] += ';SVLEN=%s'%(cdx[2]-cdx[1]+1)
                         vc = VariantCall(chrom=cdx[0],pos=cdx[1],identifier=i[2],ref=ref,
                                          alt=alt,qual=i[5],flter=i[6],info=i[7],frmat='0|1')
                         if l.has_key(vc.chrom): l[vc.chrom] += [vc]
@@ -747,6 +748,44 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
         for i in range(len(l['X'])):
             l['X'][i].frmat = '1'
     return l
+
+#remove conflicting region vc by coordinate, sv-type frequency priority
+def vcam_remove_conflicts(vcam):
+    for k in vcam:
+        F = {}
+        for vc in vcam[k]: #freq analysis on that k
+            svtype = get_info_type(vc.info)
+            if svtype in F: F[svtype] += 1
+            else:           F[svtype]  = 1
+        C = {} #conflict graph
+        for i,j in it.combinations(range(len(vcam[k])),2):
+            a,b = [vcam[k][i].pos,vcam[k][i].end],[vcam[k][j].pos,vcam[k][j].end]
+            if intersect(a,b):
+                if i in C: C[i].add(j)
+                else:      C[i]  = set([j])
+                if j in C: C[j].add(i)
+                else:      C[j]  = set([i])
+        R = set([])
+        cs = C.keys()
+        for i in cs:
+            if i in C:
+                fwd,rev = 0,0
+                for j in C[i]:
+                    if j in C: #can be removed
+                        if F[get_info_type(vcam[k][i].info)] >= F[get_info_type(vcam[k][j].info)]:
+                            fwd += len(C[i].difference(C[j]))
+                        if F[get_info_type(vcam[k][i].info)] <= F[get_info_type(vcam[k][j].info)]:
+                            rev += len(C[j].difference(C[i]))
+            if fwd >= rev and len(C[i])>0:
+                R.add(i)
+                for j in C[i]: C[j] = C[j].difference(set([i]))
+                C.pop(i)
+        print('removing %s VCF call conflicts for seq %s'%(len(R),k))
+        vca = []
+        for i in range(len(vcam[k])):
+            if i not in R: vca += [vcam[k][i]]
+        vcam[k] = vca
+    return vcam
 
 #returns the elements in vcam_b that are not part of vcam_a
 #using the tuple (chrom, start, end, type)

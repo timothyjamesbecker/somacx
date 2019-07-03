@@ -466,8 +466,8 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
                         if svgen[0]==1:                  x[0] += (vu.get_dup(vc.info)['CN']/4)*svlen
                         if len(svgen)>1 and svgen[1]==1: x[1] += (vu.get_dup(vc.info)['CN']/4)*svlen
                     elif svtype=='INS':
-                        if svgen[0]==1:                  x[0] += abs(len(vc.ref)-len(vc.alt))
-                        if len(svgen)>1 and svgen[1]==1: x[1] += abs(len(vc.ref)-len(vc.alt))
+                        if svgen[0]==1:                  x[0] += len(vc.alt)+1
+                        if len(svgen)>1 and svgen[1]==1: x[1] += len(vc.alt)+1
                 y = [0,0]
                 print('L2:SV editing mut1, mut2 strings for chrom %s'%k)
                 sv1 = vu.apply_var_calls(mut1,vcam[l][k],g=0)
