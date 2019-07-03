@@ -450,24 +450,27 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
                        k == 'MT' and len(vcam[l][k])>0 and vcam[l][k][0].chrom == 'MT':
                         print('key=%s, chrom=%s' % (k,vcam[l][k][0].chrom))
                     mut2 = vu.apply_var_calls(mut2,vcam[l][k],g=1)
-                print('L1: applied %s linked SNV, MNV to seq %s' % (len(vcam[l][k]),k))
+                print('L1:applied %s linked SNV, MNV to seq %s' % (len(vcam[l][k]),k))
             l = 2
             if l in vcam and k in vcam[l]: #variation layer 2: SVs,cxSVs
                 print('calculating expected l1:l2 differences')
-                x = [0, 0]
+                x,F = [0, 0],{'DEL':[],'DUP':[],'INS':[],'INV':[],'TRA':[]}
                 for vc in vcam[l][k]:
                     svtype = vu.get_info_type(vc.info)
                     svlen  = vu.get_info_len(vc.info)
                     svgen  = vu.get_genotype(vc.frmat,0)
                     if svtype=='DEL':
-                        if svgen[0]==1:                  x[0] -= svlen
-                        if len(svgen)>1 and svgen[1]==1: x[1] -= svlen
+                        if svgen[0]==1:                  x[0] -= svlen-1
+                        if len(svgen)>1 and svgen[1]==1: x[1] -= svlen-1
                     elif svtype=='DUP':
                         if svgen[0]==1:                  x[0] += (vu.get_dup(vc.info)['CN']/4)*svlen
                         if len(svgen)>1 and svgen[1]==1: x[1] += (vu.get_dup(vc.info)['CN']/4)*svlen
                     elif svtype=='INS':
-                        if svgen[0]==1:                  x[0] += len(vc.alt)+1
-                        if len(svgen)>1 and svgen[1]==1: x[1] += len(vc.alt)+1
+                        if svgen[0]==1:                  x[0] += len(vc.alt)-1
+                        if len(svgen)>1 and svgen[1]==1: x[1] += len(vc.alt)-1
+                    F[svtype] += [svlen]
+                for f in F: print('L2:applied %s %s of mean-len=%s for SVs to seq %s'%\
+                                  (len(F[f]),f, (0 if len(F[f])<1 else np.mean(F[f])), k))
                 y = [0,0]
                 print('L2:SV editing mut1, mut2 strings for chrom %s'%k)
                 sv1 = vu.apply_var_calls(mut1,vcam[l][k],g=0)
@@ -476,7 +479,7 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
                     sv2 = vu.apply_var_calls(mut2,vcam[l][k],g=1)
                     y[1] += len(sv2)-len(mut2)
                 if abs(x[0]-y[0])>0 or abs(x[1]-y[1])>0:
-                    print('@@@VCF@@-------------representation violation = %s : %s --------------------@@@VCF@@'%(x,y))
+                    print('@@VCF@@-------------representation violation = %s : %s --------------------@@VCF@@'%(x,y))
                     ru.dump_state(vcam[l][k],'vcf_%s_violation_error'%k,out_dir+'/')
                 else:
                     print('actual l1:l2 differences match expected')

@@ -712,7 +712,7 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
                                 cdx[2] = cdx[1]+int(np.random.uniform(0.5*small,1.5*small,1))
                                 alt = gen_alt_seq(ru.read_fasta_substring(ref_path,cdx[0],cdx[1],cdx[2]))
                                 ref = 'N'
-                                i[7] = i[7].rsplit('END=')[0]+'END='+';'.join(i[7].rsplit('END=')[-1].rsplit(';')[1:])
+                                i[7] = i[7].rsplit('END=')[0]+'END=%s;'%cdx[2]+';'.join(i[7].rsplit('END=')[-1].rsplit(';')[1:])
                         else:
                             alt = i[4]
                             ref = i[3]
