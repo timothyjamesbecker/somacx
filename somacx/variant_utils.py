@@ -684,6 +684,7 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
                     if svtype == 'DEL':
                         l[k][i].ref = ru.read_fasta_substring(ref_path,k,l[k][i].pos,l[k][i].end)
                         l[k][i].alt = '<DEL>'
+                        l[k][i].info = set_info_len(l[k][i].info,get_info_len(l[k][i].info)+1)
                     # 'SVTYPE=DUP;END=247916018;SVLEN=56793;DUP_POS=247859225;DUP_TYPE=TANDEM;ICN=4'
                     if svtype == 'DUP':  # CN, D_POS, ...
                         l[k][i].ref = ru.read_fasta_substring(ref_path,k,l[k][i].pos,l[k][i].end)
@@ -692,6 +693,8 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
                         l[k][i].info += ';INV_TYPE=PERFECT'
                         l[k][i].ref = ru.read_fasta_substring(ref_path,k,l[k][i].pos,l[k][i].end)
                         l[k][i].alt = utils.get_reverse_complement(l[k][i].ref)
+                    if svtype == 'INS':
+                        l[k][i].info = set_info_len(l[k][i].info,get_info_len(l[k][i].info)+1)
                     #if svtype == 'TRA' ...
                     #if svtype == 'INS' ? ...
         else: #g1kp3 vcf file
@@ -729,7 +732,7 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
                 print('converting SVs to soMaCX form on chrom %s'%k)
                 for i in range(len(l[k])):
                     svtype = get_info_type(l[k][i].info)
-                    # DEL are fine.... nope, ref need to be the ref[vc.pos:vc.end]
+                    # ref need to be the ref[vc.pos:vc.end]
                     if svtype == 'DEL':
                         l[k][i].ref = ru.read_fasta_substring(ref_path,k,l[k][i].pos,l[k][i].end)
                         l[k][i].alt = '<DEL>'
@@ -2027,7 +2030,11 @@ def get_info_end(info):
 #works on vc.info specifically
 def set_info_end(info,end):
     info_s = info.split('END=')
-    return info_s[0]+'END=%s;'%end+info_s[-1].rsplit(';')[-1]
+    return info_s[0]+'END=%s;'%end+';'.join(info_s[-1].rsplit(';')[1:-1])
+
+def set_info_len(info,svlen):
+    info_s = info.split('SVLEN=')
+    return info_s[0]+'SVLEN=%s;'%svlen+';'.join(info_s[-1].rsplit(';')[1:-1])
 
 def get_info_len(info):
     svlen = abs(int(info.rsplit('SVLEN=')[-1].rsplit(';')[0]))
