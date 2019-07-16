@@ -238,7 +238,7 @@ if prior_vcf is not None: #via FusorSV_VCF file
     vcf_vcam = vu.vcf_to_vcam(prior_vcf,ref_path,ks) #replace with VCF SVs
     if 'Y' not in vcf_vcam and 'Y' in ks: ks.remove('Y') #update ks
     if 'Y' not in vcf_vcam and 'Y' in rs: rs.remove('Y') #update rs
-    if 'Y' not in vcf_vcam: S.pop('Y')
+    if 'Y' not in vcf_vcam and 'Y' in S: S.pop('Y')
     print('checking VCF call conflicts')
     vcf_vcam = vu.vcam_remove_conflicts(vcf_vcam)
     print('variantion is present on: %s'%vcf_vcam.keys())

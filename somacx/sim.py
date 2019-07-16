@@ -463,11 +463,11 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
                         if svgen[0]==1:                  x[0] -= svlen-1
                         if len(svgen)>1 and svgen[1]==1: x[1] -= svlen-1
                     elif svtype=='DUP':
-                        if svgen[0]==1:                  x[0] += (vu.get_dup(vc.info)['CN']/4)*svlen
-                        if len(svgen)>1 and svgen[1]==1: x[1] += (vu.get_dup(vc.info)['CN']/4)*svlen
+                        if svgen[0]==1:                  x[0] += (vu.get_dup(vc.info)['CN']/4)*svlen-1
+                        if len(svgen)>1 and svgen[1]==1: x[1] += (vu.get_dup(vc.info)['CN']/4)*svlen-1
                     elif svtype=='INS':
-                        if svgen[0]==1:                  x[0] += len(vc.alt)-1
-                        if len(svgen)>1 and svgen[1]==1: x[1] += len(vc.alt)-1
+                        if svgen[0]==1:                  x[0] += len(vc.alt)
+                        if len(svgen)>1 and svgen[1]==1: x[1] += len(vc.alt)
                     F[svtype] += [svlen]
                 for f in F: print('L2:applied %s %s of mean-len=%s for SVs to seq %s'%\
                                   (len(F[f]),f, (0 if len(F[f])<1 else np.mean(F[f])), k))
