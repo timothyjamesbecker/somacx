@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#Timothy James Becker, PhD candidate, UCONN 01/01/2017-05/20/2019
+#Timothy James Becker, PhD candidate, UCONN 01/01/2017-02/02/2020
 #soMaCX: Somatic Complex SV Diploid Genome Generator, produces disjoint SVs on demand and then
 #allows for secondary SV layers to be introduced using several parameters
 #supported types are INS, DEL, SUB, TANDEM DUP, DISPERSED DUP, INV DUP, INV,COMPLEX INV, TRA (chroma->chromB)
@@ -14,6 +14,7 @@ import glob
 import gzip
 import json
 import time
+import numpy as np
 import somacx.read_utils as ru
 import somacx.variant_utils as vu
 import somacx.sim as sim
@@ -73,7 +74,7 @@ def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_wild
             return True
         return False
 
-des = """soMaCX: Somatic Complex Genomic Variation Generator v0.1.0, 01/01/2017-05/20/2019 Timothy James Becker"""
+des = """soMaCX: Somatic Complex Genomic Variation Generator v0.1.0, 01/01/2017-02/02/2020 Timothy James Becker"""
 parser = argparse.ArgumentParser(description=des)
 parser.add_argument('-r','--ref_path',type=str,help='reference fasta input file\t[None]')
 parser.add_argument('-o','--out_dir',type=str,help='output directory\t[None]')
@@ -85,10 +86,10 @@ parser.add_argument('--method',type=str,help='fast or slow method for generation
 parser.add_argument('--uncomp',action='store_true',help='don\'t use htslib/bgzip .gz compression for read/write\t[False]')
 parser.add_argument('--single',action='store_true',help='don\'t delete single clone genomes\t[False]')
 parser.add_argument('--center',type=bool,help='for somatic position generation, center the ranges\t[False]')
-parser.add_argument('--model',type=float,help='[0.0,1.0] value where 0.0=>CSC and 1.0=>sub clonal\t[0.5]')
-parser.add_argument('--branch',type=float,help='branching factor or chance to branch each cycle, where model=1.0 and > 2.0 => binary tree\t[0.5]')
-parser.add_argument('--decay',type=float,help='decay factor or chance that a cell node dies each cycle, where 1.0 is certain cell death\t[0.001]')
-parser.add_argument('--cov',type=float,help='total coverage/ploidy that will be simulated, used as a lower bound so data is not clipped past noise level\t[10]')
+parser.add_argument('--model',type=str,help='[0.0,1.0] value where 0.0=>CSC and 1.0=>sub clonal,csvs will indicate a random range\t[0.5]')
+parser.add_argument('--branch',type=str,help='[0.0,1.0] branching factor or chance to branch each cycle, where model=1.0 and >= 1.0 => binary tree,csvs will indicate a random range\t[0.5]')
+parser.add_argument('--decay',type=str,help='[0.0,1.0] decay factor or chance that a cell node dies each cycle, where 1.0 is certain cell death,csvs will indicate a random range\t[0.001]')
+parser.add_argument('--cov',type=str,help='>2 total coverage/ploidy that will be simulated, used as a lower bound so data is not clipped past noise level,csvs will indicate a random range\t[10]')
 parser.add_argument('--small_cut',type=int,help='filter out variants that are less than this size in bp\t[1]')
 parser.add_argument('--verbose',action='store_true',help='output more result mertics to stdout\t[False]')
 args = parser.parse_args()
@@ -152,22 +153,30 @@ elif args.complex_generator_json is not None:
     disperse_complex_generator_json(args.complex_generator_json,out_dir)
 else:
     full_json = None
-if args.method is not None:    method    = args.method
-else:                          method    = 'fast'
-if args.uncomp:                gz        = False
-else:                          gz        = True
-if args.single:                clean     = False
-else:                          clean     = True
-if args.center is not None:    center    = args.center
-else:                          center    = False
-if args.model is not None:     model     = args.model
-else:                          model     = 0.5
-if args.branch is not None:    branch    = args.branch
-else:                          branch    = 0.5
-if args.decay is not None:     decay     = args.decay
-else:                          decay     = 0.001
-if args.cov is not None:       cov       = args.cov
-else:                          cov       = 10
+if args.method is not None:          method = args.method
+else:                                method = 'fast'
+if args.uncomp:                      gz     = False
+else:                                gz     = True
+if args.single:                      clean  = False
+else:                                clean  = True
+if args.center is not None:          center = args.center
+else:                                center = False
+if args.model is not None:           model  = sorted([float(x) for x in args.model.rsplit(',')])
+else:                                model  = [0.25,0.75]
+if len(model)>0 and len(model)<=1:   model  = model[0]
+else:                                model  = np.random.choice(np.arange(model[0],model[1],(model[1]-model[0])/10.0),1)[0]
+if args.branch is not None:          branch = sorted([float(x) for x in args.branch.rsplit(',')])
+else:                                branch = [0.5,1.0]
+if len(branch)>0 and len(branch)<=1: branch = branch[0]
+else:                                branch = np.random.choice(np.arange(branch[0],branch[1],(branch[1]-branch[0])/10.0),1)[0]
+if args.decay is not None:           decay  = sorted([float(x) for x in args.decay.rsplit(',')])
+else:                                decay  = [0.001,0.0001]
+if len(decay)>0 and len(decay)<=1:   decay  = decay[0]
+else:                                decay  = np.random.choice(np.arange(decay[0],decay[1],(decay[1]-decay[0])/10.0),1)[0]
+if args.cov is not None:             cov    = sorted([float(x) for x in args.cov.rsplit(',')])
+else:                                cov    = [15,35]
+if len(cov)>0 and len(cov)<=1:       cov    = cov[0]
+else:                                cov    = np.random.choice(np.arange(cov[0],cov[1],(cov[1]-cov[0])/10.0),1)[0]
 if args.small_cut is not None: small_cut = args.small_cut
 else:                          small_cut = 1
 #if a user puts in any clone tree params, this will overide the full.json file

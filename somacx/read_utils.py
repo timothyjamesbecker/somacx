@@ -4,7 +4,11 @@
 
 import os
 import json
-import cPickle as pickle
+try:
+    import cPickle as pickle
+except Exception as E:
+    import pickle
+    pass
 import numpy as np
 import pysam
 

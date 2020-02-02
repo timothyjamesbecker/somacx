@@ -175,9 +175,9 @@ class CloneTree:
     def dft(self,node_id):
         if node_id != [] and self.nodes.has_key(node_id):
             if self.alive[node_id]: #use the clones params to generate possible subclones
-                if np.random.choice([True,False],p=[self.nodes[node_id].branch,1.0-self.nodes[node_id].branch]):
+                if np.random.choice([True,False],p=[min(1.0,max(0.0,self.nodes[node_id].branch)),1.0-min(1.0,max(0.0,self.nodes[node_id].branch))]):
                     self.new += [node_id]
-            if np.random.choice([True,False],p=[self.nodes[node_id].decay,1.0-self.nodes[node_id].decay]):
+            if np.random.choice([True,False],p=[min(1.0,max(0.0,self.nodes[node_id].decay)),1.0-min(1.0,max(0.0,self.nodes[node_id].decay))]):
                 self.past += [node_id]
             for k in self.tree[node_id]: self.dft(k)
 
