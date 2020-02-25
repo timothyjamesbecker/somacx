@@ -74,7 +74,7 @@ def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_wild
             return True
         return False
 
-des = """soMaCX: Somatic Complex Genomic Variation Generator v0.1.0, 01/01/2017-02/02/2020 Timothy James Becker"""
+des = """soMaCX: Generator v0.1.0, 01/01/2017-02/02/2020 Timothy James Becker"""
 parser = argparse.ArgumentParser(description=des)
 parser.add_argument('-r','--ref_path',type=str,help='reference fasta input file\t[None]')
 parser.add_argument('-o','--out_dir',type=str,help='output directory\t[None]')
