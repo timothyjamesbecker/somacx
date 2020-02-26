@@ -20,6 +20,7 @@ parser.add_argument('-o','--out',type=str,help='reference fasta input file\t[fas
 parser.add_argument('--tools',type=str,help='minimap2,samtools,sambamba tools path\t[None]')
 parser.add_argument('--threads',type=int,help='reference fasta input file\t[4]')
 parser.add_argument('--platform',type=str,help='illumina,pacbio\t[illumina]')
+parser.add_argument('--clean',type=bool,help='delete fastq files as you proceed to save disk\t[False]')
 args = parser.parse_args()
 
 if args.fastq is not None:
@@ -56,7 +57,7 @@ if args.tools is not None:
 else: tools = ''
 if args.out is not None:
     out_path = args.out
-    if not os.path.exists: os.mkdir(out_path)
+    if not os.path.exists(out_path): os.mkdir(out_path)
 else:
     out_path = fastq_path+'/out/'
     if not os.path.exists(out_path): os.mkdir(out_path)
