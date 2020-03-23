@@ -26,7 +26,7 @@ args = parser.parse_args()
 if args.fastq is not None:
     fastq_path = args.fastq+'/'
     files =  glob.glob(fastq_path+'*.fq')+glob.glob(fastq_path+'*.fq.gz')+\
-             glob.glob(fastq_path+'*.fastq')+glob.glob(fastq_path+'*.fasq.gz')
+             glob.glob(fastq_path+'*.fastq')+glob.glob(fastq_path+'*.fastq.gz')
     if len(files)<1:
         print('fastq files were not found!')
         raise IOError
