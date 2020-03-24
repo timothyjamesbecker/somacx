@@ -12,7 +12,7 @@ import gzip
 import json
 import time
 
-des = """soMaCX: FASTQ Alignment Tool v0.1.0, 02/20/2020 Timothy James Becker"""
+des = """FASTQ Alignment Tool v0.1.1, 03/20/2020 Timothy James Becker"""
 parser = argparse.ArgumentParser(description=des)
 parser.add_argument('-f','--fastq',type=str,help='fastq input files\t[None]')
 parser.add_argument('-r','--ref',type=str,help='reference fasta input file\t[None]')
@@ -20,6 +20,7 @@ parser.add_argument('-o','--out',type=str,help='reference fasta input file\t[fas
 parser.add_argument('--tools',type=str,help='minimap2,samtools,sambamba tools path\t[None]')
 parser.add_argument('--threads',type=int,help='reference fasta input file\t[4]')
 parser.add_argument('--platform',type=str,help='illumina,pacbio\t[illumina]')
+parser.add_argument('--fast',type=bool,help='use more cpu and memory intensive alignment\t[False]')
 parser.add_argument('--clean',type=bool,help='delete fastq files as you proceed to save disk\t[False]')
 args = parser.parse_args()
 
@@ -90,24 +91,31 @@ if __name__ == '__main__':
             sm = f[0].rsplit('/')[-1].rsplit('.')[0].rsplit('_')[0] #prefixes match so take pair1
             rg = r'"@RG\tID:%s'%sm+"_lane%s"%x+r"\tLB:%s"%sm+r"_lane%s"%x+r"\tPL:"+\
                  platform.upper()+r"\tPU:%s"%sm+r"_lane%s"%x+r'\tSM:%s"'%sm
+            if args.fast:
+                # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
+                command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                           f[0],f[1],'|',tools+'samtools sort','-','-@ %s'%threads,
+                           '-o','%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
+            else:
+                # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
+                command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                           f[0],f[1],'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
 
-            # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-            command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
-                       f[0],f[1],'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
-            try: out = subprocess.check_output(' '.join(command),shell=True)
-            except Exception as E: print(command,E)
+                # $BIO/samtools sort -l 9 -@ $TH -T _sort -o $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane1_N.bam
+                command = [tools+'samtools sort','-l 9','-@ %s'%threads, '-T %s'%out_path+'/_sort','-o',
+                           '%s/%s.lane%s.sorted.bam'%(out_path,sm,x),'%s/%s.lane%s.bam'%(out_path,sm,x)]
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
 
-            # $BIO/samtools sort -l 9 -@ $TH -T _sort -o $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane1_N.bam
-            command = [tools+'samtools sort','-l 9','-@ %s'%threads, '-T %s'%out_path+'/_sort','-o',
-                       '%s/%s.lane%s.sorted.bam'%(out_path,sm,x),'%s/%s.lane%s.bam'%(out_path,sm,x)]
-            try: out = subprocess.check_output(' '.join(command),shell=True)
-            except Exception as E: print(command,E)
-
-            #rm $DIR/$SM.lane1_N.bam
-            command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
-            try: out = subprocess.check_output(' '.join(command),shell=True)
-            except Exception as E: print(command,E)
-            B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
+                #rm $DIR/$SM.lane1_N.bam
+                command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
+                B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
             x += 1
 
         #[3] merge all sorted bams, delete each bam
