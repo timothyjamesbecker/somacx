@@ -18,7 +18,7 @@ parser.add_argument('-o','--out',type=str,help='reference fasta input file\t[fas
 parser.add_argument('--tools',type=str,help='minimap2,samtools,sambamba tools path\t[None]')
 parser.add_argument('--threads',type=int,help='reference fasta input file\t[4]')
 parser.add_argument('--platform',type=str,help='illumina,pacbio\t[illumina]')
-parser.add_argument('--fast',type=bool,help='use more cpu and memory intensive alignment\t[False]')
+parser.add_argument('--fast',action='store_true',help='use more cpu and memory intensive alignment\t[False]')
 parser.add_argument('--clean',type=bool,help='delete fastq files as you proceed to save disk\t[False]')
 args = parser.parse_args()
 
