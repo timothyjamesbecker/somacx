@@ -6,12 +6,12 @@ Copyright (C) 2020 Timothy Becker
 
 
 ## Requirements
-python 2.7.11+, cython 0.28+, pysam 0.15+, numpy 1.16+ or<br>
-python 3.6.8+, cython 
+python 2.7.11+, cython 0.29+, pysam 0.15+, numpy 1.18+ or<br>
+python 3.6.8+, cython 0.29+, pysam 0.15+, numpy 1.18+
 
 ## PIP Installation
 ```bash
-pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.0/somacx-0.1.0.tar.gz
+pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.1/somacx-0.1.1.tar.gz
 ```
 
 ## Docker Installation
