@@ -19,12 +19,12 @@ libxml2-dev \
 libncurses5-dev \
 libbz2-dev \
 zlib1g-dev \
-python \
-python-dev \
-python-pip
+python3 \
+python3-dev \
+python3-pip
 RUN apt-get autoremove
-RUN pip install subprocess32
-RUN pip install -Iv 'Cython>=0.29.0,<0.30.0'
-RUN pip install -Iv 'numpy>=1.16.0,<1.17.0'
-RUN pip install -Iv 'pysam>=0.15.0,<0.16.0'
-RUN pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.0/somacx-0.1.0.tar.gz
+RUN python3 -m pip install pip --upgrade pip
+RUN python3 -m pip install cython
+RUN python3 -m pip install numpy
+RUN python3 -m pip install pysam
+RUN python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.1/somacx-0.1.1.tar.gz

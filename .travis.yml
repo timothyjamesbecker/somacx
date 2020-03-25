@@ -1,14 +1,13 @@
 dist: bionic
 language: python
 python:
-  - "2.7.15"
+  - "3.6.9"
 install:
   - sudo apt-get update
-  - pip install subprocess32
-  - pip install cython
-  - pip install numpy
-  - pip install h5py
-  - pip install pysam
-  - pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.0/somacx-0.1.0.tar.gz
+  - python3 -m pip install pip --upgrade pip
+  - python3 -m pip install cython
+  - python3 -m pip install numpy
+  - python3 -m pip install pysam
+  - python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.1/somacx-0.1.1.tar.gz
 script:
   - generator.py -h
