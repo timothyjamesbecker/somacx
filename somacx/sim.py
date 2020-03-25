@@ -608,9 +608,9 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
             # (3) apply large DUP:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
             if 'DUP' in M[k]:
                 dup_params = {'DUP': {'TYPE': mut_p[2]['DUP']['TYPE'],
-                                      'TP': mut_p[2]['DUP']['TP'],
-                                      'CN': mut_p[2]['DUP']['CN'],
-                                      'CNP': mut_p[2]['DUP']['CNP']}}
+                                      'TP':   mut_p[2]['DUP']['TP'],
+                                      'CN':   mut_p[2]['DUP']['CN'],
+                                      'CNP':  mut_p[2]['DUP']['CNP']}}
                 dup_vca = vu.gen_var_calls(seqs, k, dup_params, M[k]['DUP'], G[k]['DUP'])  # dup_pos
                 print('L2:applied %s DUP mean-len=%s SVs to seq %s' % \
                       (len(dup_vca), vu.get_mean_size(M[k]['DUP']), k))
@@ -618,8 +618,8 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
             if 'INV' in M[k]:
                 complex_pos = []
                 inv_params = {'INV': {'TYPE': mut_p[2]['INV']['TYPE'],
-                                      'TP': mut_p[2]['INV']['TP'],
-                                      's:p': mut_p[2]['INV']['s:p']}}
+                                      'TP':   mut_p[2]['INV']['TP'],
+                                      's:p':  mut_p[2]['INV']['s:p']}}
                 inv_vca = vu.gen_var_calls(seqs, k, inv_params, M[k]['INV'], G[k]['INV'])  # inv pos
                 print('L2:applied %s INV mean-len=%s SVs to seq %s' % \
                       (len(inv_vca), vu.get_mean_size(M[k]['INV']), k))

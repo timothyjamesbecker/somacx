@@ -109,7 +109,7 @@ def read_json_mut_map(json_path):
                     mut_map[int(l)][str(t)][str(e)] = [str(i) if type(i) is unicode else i for i in raw_map[l][t][e]]
             else:
                 for e in set(raw_map[l][t]).difference(set(['l:n','h','s:p'])):
-                    mut_map[int(l)][str(t)][str(e)] = [str(i) for i in raw_map[l][t][e]]
+                    mut_map[int(l)][str(t)][str(e)] = [str(i) if type(i) is str else i for i in raw_map[l][t][e]]
     return mut_map
 
 def read_json_anueuploidy(json_path):
@@ -859,9 +859,9 @@ def pretty_size(b,units='bp'):
     s,size_map = '',{0:'',1:'K',2:'M',3:'G',4:'T',5:'P',6:'E',7:'Z',8:'Y',9:'Z'}
     x,m = [b,0],0
     if x[0]/1000>0:
-        while x[0]/1000>0:
+        while x[0]//1000>0:
             x[1] = x[0]%1000
-            x[0],m = x[0]/1000,m+1
+            x[0],m = x[0]//1000,m+1
         d = ''
         if x[1]>0: d = '.'+str(x[1])[:1]
         s = str(x[0])+d+size_map[m]+units
@@ -1014,11 +1014,11 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
                 start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r*y)
                 if center:
                     if size_dist == 'triangular':
-                        start_pos = [[max(0,i-int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))/2),
-                                      min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))/2)] for i in start_pos]
+                        start_pos = [[max(0,i-int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))//2),
+                                      min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))//2)] for i in start_pos]
                     elif size_dist == 'uniform':
-                        start_pos = [[max(0,i-int(round(np.random.uniform(0.5001*s,1.5*s),0))/2),
-                                      min(n,i+int(round(np.random.uniform(0.5001*s,1.5*s),0))/2)] for i in start_pos]
+                        start_pos = [[max(0,i-int(round(np.random.uniform(0.5001*s,1.5*s),0))//2),
+                                      min(n,i+int(round(np.random.uniform(0.5001*s,1.5*s),0))//2)] for i in start_pos]
                 else:
                     if size_dist=='triangular':
                         start_pos=[[max(0,i),min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s),0)))] for i in start_pos]
@@ -1117,10 +1117,10 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
                 start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r)
                 if center:
                     if size_dist == 'triangular':
-                        local_size = int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))/2
+                        local_size = int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))//2
                         start_pos = [[max(0,i-local_size),min(n,i+local_size)] for i in start_pos]
                     elif size_dist == 'uniform':
-                        local_size = int(round(np.random.uniform(0.5001*s,1.5*s),0))/2
+                        local_size = int(round(np.random.uniform(0.5001*s,1.5*s),0))//2
                         start_pos = [[max(0,i-local_size),min(n,i+local_size)] for i in start_pos]
                 else:
                     if size_dist=='triangular':
@@ -1131,21 +1131,22 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
                 start_pos=np.array(np.random.uniform(0,n-s,r),dtype=int)
                 if size_dist=='triangular':
                     start_pos=[[max(0,i),#-int(round(np.random.triangular(0.5001*s,s,1.5*s),0))/2),
-                                min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s),0))/1)] for i in start_pos]
+                                min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s),0))//1)] for i in start_pos]
                 elif size_dist=='uniform':
                     start_pos=[[max(0,i),#-int(round(np.random.uniform(0.5001*s,1.5*s),0))/2),
-                                min(n,i+int(round(np.random.uniform(0.5001*s,1.5*s),0))/1)] for i in start_pos]
+                                min(n,i+int(round(np.random.uniform(0.5001*s,1.5*s),0))//1)] for i in start_pos]
             Y[(t,s)] = [[start_pos[i][0],start_pos[i][1],1.0,{t:{s}}] \
                         for i in range(len(start_pos))] #try using a wcu here
     if not germ: #in somatic the loss_wcu and gain_wcu had the germ class put inside, so class_p.keys() might have germ
         C,t = {},list(class_p.keys())[0]
         for i in range(len(class_p[t][0])):
             if class_p[t][1][i]<=0.0:
-                if ('germ') in C:
-                    C[('germ')] += [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
+                if ('germ',) in C:
+                    C[('germ',)] += [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
                 else:
-                    C[('germ')]  = [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
+                    C[('germ',)]  = [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
         for k in C: Y[k] = sorted(C[k],key=lambda x: x[0]) #append into Y and scan
+        print(Y.keys())
     # [2] merge and cleaning step algo--------------------------------------------------------------------------
     G = weight_graph(Y)
     P = scan_graph(G,scale=False)
@@ -1421,7 +1422,7 @@ def weight_graph(C):
 #index to resolve the correct row entry
 def group_indecies(C):
     c_i,i_c,i = {},{},0
-    for g in sorted(list(C.keys())):
+    for g in sorted(C.keys()):
         c_i[g]=i
         for j in range(i,i+len(C[g])): i_c[j]=g
         i+=len(C[g])
@@ -2104,8 +2105,8 @@ def update_pos_list(old_list,vca,g=0,index=0): #g is the genotype position eithe
                     for pos in pos_list:
                         for d in dup['POS']:
                             if pos[0]>d:  #doesn't split boundries
-                                pos[0] += sv_len*(dup['CN']/2-1) #assume all tandem CN
-                                pos[1] += sv_len*(dup['CN']/2-1) #assume all tandem CN
+                                pos[0] += sv_len*(dup['CN']//2-1) #assume all tandem CN
+                                pos[1] += sv_len*(dup['CN']//2-1) #assume all tandem CN
             elif sv_type=='TRA':
                 tra = get_tra(vca[i].info)
                 tra_len = tra['END2']-tra['POS2']
@@ -2148,9 +2149,9 @@ def update_vca_pos(vca_a,vca_b,g=0,index=0):
                     for j in range(len(vca)):
                         for d in dup['POS']:
                             if vca[j].pos > d:                     # doesn't split boundries
-                                vca[j].pos += sv_len*(dup['CN']/2-1)  # assume all tandem CN
+                                vca[j].pos += sv_len*(dup['CN']//2-1)  # assume all tandem CN
                                 vca[j].info = set_info_end(vca[j].info,
-                                                           get_info_end(vca[j].info)+sv_len*(dup['CN']/2-1))
+                                                           get_info_end(vca[j].info)+sv_len*(dup['CN']//2-1))
             elif sv_type == 'TRA':
                 tra = get_tra(vca_b[i].info)
                 tra_len = tra['END2']-tra['POS2']
@@ -2205,11 +2206,11 @@ def apply_var_calls(full_ref,vca,g=0,index=0):
                     offset += len(alt)      #normal section here
                 #DUP->DISPERSED----------------------------------------------------------------------------------
                 elif dp['TYPE']=='INV':
-                   mut    += ''.join([utils.get_reverse_complement(vca[i].ref) for j in range(dp['CN']/2)])
-                   offset += len(vca[i].ref)*(dp['CN']/2-1)
+                   mut    += ''.join([utils.get_reverse_complement(vca[i].ref) for j in range(dp['CN']//2)])
+                   offset += len(vca[i].ref)*(dp['CN']//2-1)
                 elif dp['TYPE']=='TANDEM' and len(dp['POS'])>=1:#DUP->TANDEM:::::::::::::::::::::::::::::::::::::
-                    mut    += ''.join([vca[i].ref for j in range(dp['CN']/2)]) #the normal ref section
-                    offset += len(vca[i].ref)*(dp['CN']/2-1)
+                    mut    += ''.join([vca[i].ref for j in range(dp['CN']//2)]) #the normal ref section
+                    offset += len(vca[i].ref)*(dp['CN']//2-1)
                 #DUP->TANDEM:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
                 r_pos = vca[i].pos+len(ref) #move past the DUP section in the ref space
             #---------------------------------------------------

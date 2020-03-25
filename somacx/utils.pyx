@@ -6,6 +6,7 @@ cimport numpy as np
 #regular imports
 import math
 import random
+import sys
 import itertools as it
 import numpy as np
 import pysam
@@ -157,15 +158,25 @@ def write_fasta(dict seqs, str fasta_path, str mode='w',bint index=False, bint g
         else: return False
         if index:
             with pysam.BGZFile(fasta_path,mode=mode,index=fasta_path+'i') as fasta:
-                for k in seqs:
-                    s = '\n'.join(['>%s'%k]+[seqs[k][i:(i+linewidth)] for i in range(0,len(seqs[k]),linewidth)])+'\n'
-                    fasta.write(s)
+                if sys.version_info.major<3:
+                    for k in seqs:
+                        s = '\n'.join(['>%s'%k]+[seqs[k][i:(i+linewidth)] for i in range(0,len(seqs[k]),linewidth)])+'\n'
+                        fasta.write(s)
+                else:
+                    for k in seqs:
+                        s = '\n'.join(['>%s'%k]+[seqs[k][i:(i+linewidth)] for i in range(0,len(seqs[k]),linewidth)])+'\n'
+                        fasta.write(bytes(s,encoding='utf_8'))
             pysam.faidx(fasta_path)
         else:
             with pysam.BGZFile(fasta_path,mode=mode) as fasta:
-                for k in seqs:
-                    s = '\n'.join(['>%s'%k]+[seqs[k][i:(i+linewidth)] for i in range(0,len(seqs[k]),linewidth)])+'\n'
-                    fasta.write(s)
+                if sys.version_info.major<3:
+                    for k in seqs:
+                        s = '\n'.join(['>%s'%k]+[seqs[k][i:(i+linewidth)] for i in range(0,len(seqs[k]),linewidth)])+'\n'
+                        fasta.write(s)
+                else:
+                    for k in seqs:
+                        s = '\n'.join(['>%s'%k]+[seqs[k][i:(i+linewidth)] for i in range(0,len(seqs[k]),linewidth)])+'\n'
+                        fasta.write(bytes(s,encoding='utf_8'))
     return True 
 
 #given a fastq with a certain number of reads, subsample a certain number of them
