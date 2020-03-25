@@ -198,26 +198,28 @@ if __name__ == '__main__':
                 x += 1
             #[3] merge all sorted bams, delete each bam
             # $BIO/samtools merge -l 9 -@ $TH -O BAM $DIR/$SM.N.merged.bam $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
-            command = [tools+'samtools merge','-l 9','-@ %s'%threads, '-O BAM',
-                       '%s/%s.merged.bam'%(out_path,sm)]+sorted(B)
-            try: out = subprocess.check_output(' '.join(command),shell=True)
-            except Exception as E: print(command,E)
+            if not os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
+                command = [tools+'samtools merge','-l 9','-@ %s'%threads, '-O BAM',
+                           '%s/%s.merged.bam'%(out_path,sm)]+sorted(B)
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
 
-            #rm $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
-            command = ['rm']+sorted(B)
-            try: out = subprocess.check_output(' '.join(command),shell=True)
-            except Exception as E: print(command,E)
+                #rm $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
+                command = ['rm']+sorted(B)
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
 
             #[4] markdups on merged-sorted bam, delete merged bam
             #$BIO/sambamba markdup -l 9 -t $TH --tmpdir=_sort --sort-buffer-size=8096 --overflow-list-size=2000000 $DIR/$SM.N.merged.bam $DIR/$SM.N.final.bam
-            command = [tools+'sambamba markdup','-l 9','-t %s'%threads,'--tmpdir=%s'%out_path+'/_sort',
-                       '--sort-buffer-size=8096 --overflow-list-size=2000000',
-                       '%s/%s.merged.bam'%(out_path,sm),'%s/%s.final.bam'%(out_path,sm)]
-            try: out = subprocess.check_output(' '.join(command),shell=True)
-            except Exception as E: print(command,E)
-            command = ['rm -rf','%s/%s.merged.bam'%(out_path,sm)]
-            if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort', '|| true']
-            try: out = subprocess.check_output(' '.join(command),shell=True)
-            except Exception as E: print(command,E)
+            if not os.path.exists('%s/%s.final.bam'%(out_path,sm)) and os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
+                command = [tools+'sambamba markdup','-l 9','-t %s'%threads,'--tmpdir=%s'%out_path+'/_sort',
+                           '--sort-buffer-size=8096 --overflow-list-size=2000000',
+                           '%s/%s.merged.bam'%(out_path,sm),'%s/%s.final.bam'%(out_path,sm)]
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
+                command = ['rm -rf','%s/%s.merged.bam'%(out_path,sm)]
+                if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort', '|| true']
+                try: out = subprocess.check_output(' '.join(command),shell=True)
+                except Exception as E: print(command,E)
         s_stop = time.time()
         print('finished processing sample=%s in %s min'%(sm,int(round((s_stop-s_start)/60.0))))
