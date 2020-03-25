@@ -1,5 +1,6 @@
-#Timothy James Becker, PhD candidate, UCONN 01/10/2017-01/06/2018
+#Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
 import os
+import sys
 import re
 import copy
 import datetime
@@ -9,12 +10,15 @@ import time
 import gzip
 import json
 import hashlib
-import cPickle as pickle
-
+try:
+    import cPickle as pickle
+except Exception as E:
+    import pickle
+    pass
 import numpy as np
 
 import utils
-import read_utils as ru
+import somacx.read_utils as ru
 
 class VariantCall:
     def __init__(self,chrom=None,pos=None,identifier=None,
@@ -65,9 +69,13 @@ def get_local_path(local_path=''):
     return path + local_path
 
 #json hook for conversion to str types as needed by fasta reader libs
-def str_hook(obj):
-    return {k.encode('utf-8') if isinstance(k,unicode) else k:
-            v.encode('utf-8') if isinstance(v, unicode) else v for k,v in obj}
+if sys.version_info.major<3:
+    def str_hook(obj):
+        return {k.encode('utf-8') if isinstance(k,unicode) else k:
+                v.encode('utf-8') if isinstance(v, unicode) else v for k,v in obj}
+else:
+    def str_hook(obj):
+        return {k:v for k,v in obj}
 
 #load in a JSON mutation map such as g1kp3_mut_map.json, somatic_mut_map.json,ect...
 # mut_p = {layer(sorted integer 1,2,3,...):
@@ -79,7 +87,7 @@ def str_hook(obj):
 def read_json_mut_map(json_path):
     mut_map = {}
     if json_path.endswith('.gz'):
-        with gzip.GzipFile(path,'rb') as f:
+        with gzip.GzipFile(json_path,'rb') as f:
             raw_map = json.load(f)
     else:
         with open(json_path,'r') as f:
@@ -91,13 +99,17 @@ def read_json_mut_map(json_path):
             mut_map[int(l)][str(t)]['l:n'] = {}
             for b in raw_map[l][t]['l:n']:
                 mut_map[int(l)][t]['l:n'][float(b)] = raw_map[l][t]['l:n'][b]
-            if raw_map[l][t].has_key('s:p'):
+            if 's:p' in raw_map[l][t]:
                 mut_map[int(l)][str(t)]['s:p'] = {}
                 for b in raw_map[l][t]['s:p']:
                     mut_map[int(l)][str(t)]['s:p'][float(b)] = raw_map[l][t]['s:p'][b]
             mut_map[int(l)][str(t)]['h'] = raw_map[l][t]['h']
-            for e in set(raw_map[l][t]).difference(set(['l:n','h','s:p'])):
-                mut_map[int(l)][str(t)][str(e)] = [str(i) if type(i) is unicode else i for i in raw_map[l][t][e]]
+            if sys.version_info.major<3:
+                for e in set(raw_map[l][t]).difference(set(['l:n','h','s:p'])):
+                    mut_map[int(l)][str(t)][str(e)] = [str(i) if type(i) is unicode else i for i in raw_map[l][t][e]]
+            else:
+                for e in set(raw_map[l][t]).difference(set(['l:n','h','s:p'])):
+                    mut_map[int(l)][str(t)][str(e)] = [str(i) for i in raw_map[l][t][e]]
     return mut_map
 
 def read_json_anueuploidy(json_path):
@@ -135,7 +147,7 @@ def build_ucsc_gene_exon_map(refGene,swap=True,tx=False):
         exons = [[min(starts[j],ends[j]),max(starts[j],ends[j])] for j in range(len(starts))]
         exons = sorted(exons,key=lambda x: x[0])
         if len(row)>=12 and (x2-x1)>0:
-            if G.has_key(g):
+            if g in G:
                 similiar = False
                 for l in range(len(G[g])):
                     b1,y1,y2, = G[g][l]
@@ -160,18 +172,18 @@ def build_ucsc_gene_exon_map(refGene,swap=True,tx=False):
         for g in G:
             R,V = [],[]
             for l in range(len(G[g])):
-                if M.has_key(G[g][l][0]): G[g][l][0] = M[G[g][l][0]]
-                else:                     R += [G[g][l]]
+                if G[g][l][0] in M: G[g][l][0] = M[G[g][l][0]]
+                else:               R += [G[g][l]]
             for e in E[g]:
-                if M.has_key(e[0]): e[0] = M[e[0]]
+                if e[0] in M: e[0] = M[e[0]]
                 else:               V += [e]
             for r in R: G[g].remove(r)
             for v in V: E[g].remove(v)
     for g in G:
         for l in range(len(G[g])):
             a1,x1,x2 = G[g][l]
-            if C.has_key(a1): C[a1] += [[g,x1,x2]]
-            else:             C[a1]  = [[g,x1,x2]]
+            if a1 in C: C[a1] += [[g,x1,x2]]
+            else:       C[a1]  = [[g,x1,x2]]
     for c in C:
         C[c] = sorted(C[c],key=lambda x: x[1])
     for c in C:
@@ -208,14 +220,14 @@ def seq_name_map(chroms):
         for chrom in chroms:
             k = chrom.upper().split('CHR')[1].split('_')[0]
             if chrom in hg_set:
-                if C.has_key(k): C[k] += [chrom]
-                else:            C[k]  = [chrom]
+                if k in C: C[k] += [chrom]
+                else:      C[k]  = [chrom]
     else: #have 1 add the chr
         for chrom in chroms:
             k = 'chr'+chrom
             if chrom in gc_set:
-                if C.has_key(k): C[k] += [chrom]
-                else:            C[k]  = [chrom]
+                if k in C: C[k] += [chrom]
+                else:      C[k]  = [chrom]
     for k in C:
         for i in range(len(C[k])):
             D[C[k][i]] = k
@@ -247,10 +259,10 @@ def read_de_gene_list(path,delim='\t'):
 def gene_list_to_wcu(L,W,G,label=''):
     P = {}
     for i in range(len(L)):
-        if G['gene'].has_key(L[i]):
+        if L[i] in G['gene']:
             for c in G['gene'][L[i]]:
-                if P.has_key(c[0]): P[c[0]] += [[c[1],c[2],W[i],{label:set([L[i]])}]]
-                else:               P[c[0]]  = [[c[1],c[2],W[i],{label:set([L[i]])}]]
+                if c[0] in P: P[c[0]] += [[c[1],c[2],W[i],{label:set([L[i]])}]]
+                else:         P[c[0]]  = [[c[1],c[2],W[i],{label:set([L[i]])}]]
     for k in P:
         P[k] = sorted(P[k],key=lambda x: x[0])
     return P
@@ -411,8 +423,8 @@ def vcf_to_wcu(path,delim='\t',skip='#',remove_dup=False,clean_coord=True,w=0.0,
     g = [t.split(delim) if not t.startswith(skip) else None for t in s.split('\n')]
     for i in g:
         if i is not None and len(i)>0 and i[0]!= '':
-            if l.has_key(i[0]): l[i[0]] += [i]
-            else:               l[i[0]]  = [i]
+            if i[0] in l: l[i[0]] += [i]
+            else:         l[i[0]]  = [i]
     if label is not None:
         s,g = '',{}
         if has_end and has_svtype and has_sample:
@@ -466,7 +478,7 @@ def vcf_to_wcu(path,delim='\t',skip='#',remove_dup=False,clean_coord=True,w=0.0,
             if type(g[k]) is list:
                 u[k],h[k] = set([]),[]
                 for i in range(len(g[k])):
-                    v = (g[k][i][0],g[k][i][1],g[k][i][2],g[k][i][3].keys()[0])
+                    v = (g[k][i][0],g[k][i][1],g[k][i][2],list(g[k][i][3].keys())[0])
                     if v not in u[k]:
                         u[k].add(v)
                         h[k] += [g[k][i]]
@@ -475,7 +487,7 @@ def vcf_to_wcu(path,delim='\t',skip='#',remove_dup=False,clean_coord=True,w=0.0,
             elif type(g[k]) is dict and label in g[k]:
                 u[k],h[k] = set([]),{label:[]}
                 for i in range(len(g[k][label])):
-                    v = (g[k][label][i][0],g[k][label][i][1],g[k][label][i][2],g[k][label][i][3].keys()[0])
+                    v = (g[k][label][i][0],g[k][label][i][1],g[k][label][i][2],list(g[k][label][i][3].keys())[0])
                     if v not in u[k]:
                         u[k].add(v)
                         h[k][label] += [g[k][label][i]]
@@ -511,8 +523,8 @@ def bed_to_wcu(path,delim='\t',w=0.0,label='bed'):
     for row in s.split('\n'):
         raw   =  row.split('\t')
         k,i,j = [raw[0],int(raw[1]),int(raw[2])]
-        if g.has_key(k): g[k] += [[i,j,w,{label:set(['%s_%s'%(label,y)])}]]
-        else:            g[k]  = [[i,j,w,{label:set(['%s_%s'%(label,y)])}]]
+        if k in g: g[k] += [[i,j,w,{label:set(['%s_%s'%(label,y)])}]]
+        else:      g[k]  = [[i,j,w,{label:set(['%s_%s'%(label,y)])}]]
         y += 1
     return g
 
@@ -553,10 +565,10 @@ def weight_wcu_by_idx_count(wcu,count_all_classes=True,filter=[5,500,True]):
             W[k]['all'] = []
             for i in range(len(P)):
                 if filter[2]: #implies majority rules
-                    b = P[i][3].keys()[np.argmax([len(P[i][3][c]) for c in P[i][3]])]
+                    b = list(P[i][3].keys())[np.argmax([len(P[i][3][c]) for c in P[i][3]])]
                     P[i][3] = {b:P[i][3][b]}
                 sums = {c:set([len(P[i][3][c])]) for c in P[i][3]}
-                cs = sums.keys()
+                cs = list(sums.keys())
                 for c in cs:
                     for s in sums[c]:
                         if s<filter[0] or s>filter[1]: sums.pop(c)
@@ -570,7 +582,7 @@ def weight_wcu_by_idx_count(wcu,count_all_classes=True,filter=[5,500,True]):
         else:
             for i in range(len(P)):
                 for c in P[i][3]:
-                    if W[k].has_key(t):
+                    if t in W[k]:
                         W[k][c] += [[P[i][0],P[i][1],float(len(P[i][3][c]),P[i][3])]]
                     else:
                         W[k][c]  = [[P[i][0],P[i][1],float(len(P[i][3][c]),P[i][3])]]
@@ -586,10 +598,10 @@ def wcu_to_gene_list(wcu,gene_map):
                 G = weight_graph({'gene':gene_map['wcu'][k]['gene'],c:wcu[k][c]})
                 P = scan_graph(G)
                 for i in range(len(P)):
-                    if P[i][3].has_key('gene') and len(P[i][3])>1:
+                    if 'gene' in P[i][3] and len(P[i][3])>1:
                         for g in P[i][3]['gene']:
-                            if P[i][3].has_key('DUP'):   gain_genes.add(g)
-                            elif P[i][3].has_key('DEL'): loss_genes.add(g)
+                            if 'DUP' in P[i][3]:   gain_genes.add(g)
+                            elif 'DEL' in P[i][3]: loss_genes.add(g)
                             genes.add(g)
     return sorted(list(gain_genes)),sorted(list(loss_genes)),sorted(list(genes))
 
@@ -670,8 +682,8 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
                     if tuple(cdx) not in M:   #no duplicate entries
                         vc = VariantCall(chrom=i[0],pos=int(i[1]),identifier=i[2],ref=i[3],
                                          alt=i[4],qual=i[5],flter=i[6],info=i[7],frmat=i[9])
-                        if l.has_key(vc.chrom): l[vc.chrom] += [vc]
-                        else:                   l[vc.chrom]  = [vc]
+                        if vc.chrom in l: l[vc.chrom] += [vc]
+                        else:             l[vc.chrom]  = [vc]
                         M[tuple(cdx)]  = 1
                     else:
                         M[tuple(cdx)] += 1
@@ -722,8 +734,8 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
                         i[7] += ';SVLEN=%s'%(cdx[2]-cdx[1]+1)
                         vc = VariantCall(chrom=cdx[0],pos=cdx[1],identifier=i[2],ref=ref,
                                          alt=alt,qual=i[5],flter=i[6],info=i[7],frmat='0|1')
-                        if l.has_key(vc.chrom): l[vc.chrom] += [vc]
-                        else:                   l[vc.chrom]  = [vc]
+                        if vc.chrom in l: l[vc.chrom] += [vc]
+                        else:             l[vc.chrom]  = [vc]
                         M[tuple(cdx)]  = 1
                     else:
                         M[tuple(cdx)] += 1
@@ -769,7 +781,7 @@ def vcam_remove_conflicts(vcam):
                 if j in C: C[j].add(i)
                 else:      C[j]  = set([i])
         R = set([])
-        cs = C.keys()
+        cs = list(C.keys())
         for i in cs:
             if i in C:
                 fwd,rev = 0,0
@@ -811,11 +823,11 @@ def vcam_union(vcam_a,vcam_b):
     D,A,B = {},vcam_a,vcam_b
     for k in set(A.keys()).union(set(B.keys())):
         D[k],ks_a,ks_b = [],{},{}
-        if A.has_key(k):
+        if k in A:
             ks_a = {(A[k][i].chrom,A[k][i].pos,A[k][i].end):i for i in range(len(A[k]))}
             for v in set(ks_a.keys()):
                 D[k] += [A[k][ks_a[v]]]
-        if B.has_key(k):
+        if k in B:
             ks_b = {(B[k][i].chrom,B[k][i].pos,B[k][i].end):i for i in range(len(B[k]))}
             for v in set(ks_b.keys()).difference(set(ks_a.keys())):
                 D[k] += [B[k][ks_b[v]]]
@@ -837,10 +849,10 @@ def merge_wcu(wcu):
     M = {}
     for c in wcu:
         for k in wcu[c]:
-            if M.has_key(k):
-                if M[k].has_key(c): M[k][c] += wcu[c][k]
-                else:               M[k][c]  = wcu[c][k]
-            else:                   M[k] = {c: wcu[c][k]}
+            if k in M:
+                if c in M[k]: M[k][c] += wcu[c][k]
+                else:         M[k][c]  = wcu[c][k]
+            else:             M[k] = {c: wcu[c][k]}
     return M
 
 def pretty_size(b,units='bp'):
@@ -865,7 +877,7 @@ def read_exclude(exclude_path):
         for line in f:
             row = f.split(',')
             if len(row) > 0:
-                if exclude.has_key(row[0]):
+                if row[0] in exclude:
                     exclude[row[0]] += [[int(i) for i in row[1:]]]
                 else:
                     exclude[row[0]]  = [[int(i) for i in row[1:]]]
@@ -964,10 +976,10 @@ def mut_over_detected(over):
 #update the probabilty to sample given the loss of key k
 #transfering the k key equally back to the others and poping k
 def update_sampling_prob(P,k):
-    if P.has_key(k):
-        p=P.pop(k)
-        n=1.0*len(P)
-        P={r:P[r]+p/n for r in P}
+    if k in P:
+        p = P.pop(k)
+        n = 1.0*len(P)
+        P = {r:P[r]+p/n for r in P}
     return P
 
 def class_hp_to_pos(class_p,cutoff=0.0):
@@ -997,9 +1009,9 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
             x = ((d-c)/(b-a))*(s-a)+c
             r = int(round(r*x,0))
 
-            if class_p.has_key(t): #mulitmodal distribution over the class ranges and weights
-                s_class_p=copy.deepcopy(class_p[t])
-                start_pos=utils.weighted_random(s_class_p[0],s_class_p[1],r*y)
+            if t in class_p: #mulitmodal distribution over the class ranges and weights
+                s_class_p = copy.deepcopy(class_p[t])
+                start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r*y)
                 if center:
                     if size_dist == 'triangular':
                         start_pos = [[max(0,i-int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))/2),
@@ -1027,7 +1039,7 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
 
     #[2] randomly sample from F using P into R and report results in F/R while P is maintained-------
     while F['requested']>0 and F['remaining']>0 and len(P)>0:        #select which pos list to add to
-        t,s = P.keys()[np.random.choice(range(len(P)),p=[P[k] for k in P])]   #sample from (t,s) keys
+        t,s = list(P.keys())[np.random.choice(range(len(P)),p=[P[k] for k in P])]   #sample from (t,s) keys
         if len(R[(t,s)])<1 and len(F[t][s]['pos'])>0 and F[t][s]['r']>0:      #first sample only
             if len(utils.LRF_1D(G,[F[t][s]['pos'][0]])[0])<1:
                 R[(t,s)] += [F[t][s]['pos'][0]] #get the first
@@ -1058,7 +1070,7 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
             F[t].pop(s)
             P = update_sampling_prob(P,(t,s))
     for k in R: #clean up and delever each type seperately as keys in M
-        if M.has_key(k[0]):
+        if k[0] in M:
             M[k[0]] += R[k]
         else:
             M[k[0]] = R[k]
@@ -1067,11 +1079,11 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
     Q,H = mut_overlap(M),{}
     for q in Q:
         for t in q[3]:
-            if not H.has_key(t): H[t] = {}
+            if t not in H: H[t] = {}
             for n in q[3][t]:
                 i = int(n.split('_')[-1])-1
-                if H[t].has_key(i): H[t][i] += 1
-                else:               H[t][i]  = 1
+                if i in H[t]: H[t][i] += 1
+                else:         H[t][i]  = 1
     for t in H:
         V = []
         for i in H[t]:
@@ -1100,9 +1112,9 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
             R[(t,s)] = int(round(mut_p[l][t]['l:n'][s]*n,0)) #requested
             x = ((d-c)/(b-a+1))*(s-a)+c
             r = int(round(R[(t,s)]*x,0))
-            if class_p.has_key(t): #mulitmodal distribution over the class ranges and weights
-                s_class_p=copy.deepcopy(class_p[t])
-                start_pos=utils.weighted_random(s_class_p[0],s_class_p[1],r)
+            if t in class_p: #mulitmodal distribution over the class ranges and weights
+                s_class_p = copy.deepcopy(class_p[t])
+                start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r)
                 if center:
                     if size_dist == 'triangular':
                         local_size = int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))/2
@@ -1126,10 +1138,10 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
             Y[(t,s)] = [[start_pos[i][0],start_pos[i][1],1.0,{t:{s}}] \
                         for i in range(len(start_pos))] #try using a wcu here
     if not germ: #in somatic the loss_wcu and gain_wcu had the germ class put inside, so class_p.keys() might have germ
-        C,t = {},class_p.keys()[0]
+        C,t = {},list(class_p.keys())[0]
         for i in range(len(class_p[t][0])):
             if class_p[t][1][i]<=0.0:
-                if C.has_key(('germ')):
+                if ('germ') in C:
                     C[('germ')] += [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
                 else:
                     C[('germ')]  = [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
@@ -1145,13 +1157,13 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
             for t in idx:
                 for s in idx[t]: #needs to be at least half as big as its bin
                     if 1.0*(P[i][1]-P[i][0])>=0.5*s:
-                        if A.has_key((t,s)): A[(t,s)] += [[P[i][0],P[i][1]]]
-                        else:                A[(t,s)]  = [[P[i][0],P[i][1]]]
+                        if (t,s) in A: A[(t,s)] += [[P[i][0],P[i][1]]]
+                        else:          A[(t,s)]  = [[P[i][0],P[i][1]]]
     for k in R:
-        if A.has_key(k):
+        if k in A:
             I = np.random.choice(range(len(A[k])),min(R[k],len(A[k])),replace=False)
-            if M.has_key(k[0]): M[k[0]] += [A[k][i] for i in I]
-            else:               M[k[0]]  = [A[k][i] for i in I]
+            if k[0] in M: M[k[0]] += [A[k][i] for i in I]
+            else:         M[k[0]]  = [A[k][i] for i in I]
     for t in M: M[t] = sorted(M[t])
     return M
 
@@ -1232,7 +1244,7 @@ def adjust_anueuploidy_effect(aneuploidy,ploidy,loss,loss_types=['DEL','INS','IN
     if dist=='uniform':
         hits,total = {},{'effected':0.0,driver:0.0}
         for k in loss:
-            if loss[k].has_key(driver):
+            if driver in loss[k]:
                 hits[k] = {'effected':0.0,driver:0.0}
                 for t in loss[k][driver][k]:
                     if t in loss_types:
@@ -1242,7 +1254,7 @@ def adjust_anueuploidy_effect(aneuploidy,ploidy,loss,loss_types=['DEL','INS','IN
             total['effected'] += hits[k]['effected']
             total[driver]     += hits[k][driver]
         for k in aneuploidy:
-            if ploidy.has_key(k):
+            if k in ploidy:
                 q   = aneuploidy[k][ploidy[k]]
                 a_s = sorted(set(aneuploidy[k].keys()).difference(set([ploidy[k]])))
                 if len(a_s)>0 and total[driver]>0:
@@ -1264,11 +1276,11 @@ def adjust_ins_effect(vca,driver='nhej'):
 
 #given a set of sequences and a sequency ploidy prob distribution
 def gen_anueuploidy(seqs,ploidy,CT,anueuploidy): #aneuploidy: {k:{0:0.05,1:0.05,2:0.8,3:0.05,4:0.025,5:0.025}}
-    A,clones = {},sorted(CT.freq.keys(),key=lambda x: int(x.rsplit('_')[-1]))
+    A,clones = {},sorted(list(CT.freq.keys()),key=lambda x: int(x.rsplit('_')[-1]))
     for k in seqs:
-        if anueuploidy.has_key(k):
+        if k in anueuploidy:
             A[k] = []
-            a = sorted(anueuploidy[k].keys())
+            a = sorted(list(anueuploidy[k].keys()))
             p = [anueuploidy[k][s] for s in a]
             x = np.random.choice(a=a,p=p,size=1,replace=False)[0]
             start_clone = np.random.choice(a=clones)  #pick at random
@@ -1327,7 +1339,7 @@ def partition_pos(pos,p,prop=None,index_only=False):
                         P[x] = sorted([pos[k] for k in K])
                         for k in K: S.pop(k)
                 if len(S)>0 and p>0:
-                    ks,x = S.keys(),np.random.choice(range(p),1,replace=False)[0]
+                    ks,x = list(S.keys()),np.random.choice(range(p),1,replace=False)[0]
                     for k in ks:
                         P[x] += [S[k]]
                         S.pop(k)
@@ -1343,7 +1355,7 @@ def partition_pos(pos,p,prop=None,index_only=False):
                         P[x] = sorted([k for k in K])
                         for k in K: S.pop(k)
                 if len(S)>0 and p>0:
-                    ks,x = S.keys(),np.random.choice(range(p),1,replace=False)[0]
+                    ks,x = list(S.keys()),np.random.choice(range(p),1,replace=False)[0]
                     for k in ks:
                         P[x] += [k]
                         S.pop(k)
@@ -1357,8 +1369,8 @@ def join_idx(C,j,p):
     for idx in [C[i][p] for i in j]:
         for k in idx:
             for i in idx[k]:
-                if I.has_key(k): I[k].add(i)
-                else:            I[k] =  {i}
+                if k in I: I[k].add(i)
+                else:      I[k] =  {i}
     return I
 
 #given two idx merge them into one
@@ -1366,12 +1378,12 @@ def merge_idx(idx1,idx2):
     I = {}
     for k in idx1:
         for i in idx1[k]:
-            if I.has_key(k): I[k].add(i)
-            else:            I[k] =  {i}
+            if k in I: I[k].add(i)
+            else:      I[k] =  {i}
     for k in idx2:
         for i in idx2[k]:
-            if I.has_key(k): I[k].add(i)
-            else:            I[k] =  {i}
+            if k in I: I[k].add(i)
+            else:      I[k] =  {i}
     return I
 
 #returns G[g][d][C[g]=>i, C[g][wx]]
@@ -1381,17 +1393,17 @@ def weight_graph(C):
     G,X = {},[]
     c_i,i_c = group_indecies(C)
     if len(i_c)>0: #load all unique verticies
-        for c in sorted(C.keys()): #for each classifier
+        for c in sorted(list(C.keys())): #for each classifier
             for i in range(len(C[c])): #for every entry in every classifier
                 for j in range(2):     #for the start and stop point in the pos (range)
-                    if G.has_key(C[c][i][j]):
-                        if G[C[c][i][j]].has_key(c):
-                            if G[C[c][i][j]][c].has_key(j): G[C[c][i][j]][c][j] += [[i+c_i[c],C[c][i][2]]]
-                            else:                           G[C[c][i][j]][c][j]  = [[i+c_i[c],C[c][i][2]]]
-                        else:                               G[C[c][i][j]][c]  = {j:[[i+c_i[c],C[c][i][2]]]}
-                    else:                                   G[C[c][i][j]]  = {c:{j:[[i+c_i[c],C[c][i][2]]]}}
+                    if C[c][i][j] in G:
+                        if c in G[C[c][i][j]]:
+                            if j in G[C[c][i][j]][c]: G[C[c][i][j]][c][j] += [[i+c_i[c],C[c][i][2]]]
+                            else:                     G[C[c][i][j]][c][j]  = [[i+c_i[c],C[c][i][2]]]
+                        else:                         G[C[c][i][j]][c]  = {j:[[i+c_i[c],C[c][i][2]]]}
+                    else:                             G[C[c][i][j]]  = {c:{j:[[i+c_i[c],C[c][i][2]]]}}
             X += C[c] #load the entry into X which will then get sorted by position
-        last = sorted(G.keys())[-1]+2          #get last x2 value in G
+        last = sorted(list(G.keys()))[-1]+2          #get last x2 value in G
         G[last] = {(None,):{None:[None,None]}} #to pad out a terminal vertex
         #check all indecies are paired
         V = {}
@@ -1399,8 +1411,8 @@ def weight_graph(C):
             for c in G[i]:
                 for e in G[i][c]:
                     for l in G[i][c][e]:
-                        if V.has_key(l[0]): V[l[0]] += 1
-                        else:               V[l[0]]  = 1
+                        if l[0] in V: V[l[0]] += 1
+                        else:         V[l[0]]  = 1
         #print('all vertices and edges added : %s'%all([V[i]==2 for i in V]))
     return X,G,c_i,i_c
 
@@ -1409,7 +1421,7 @@ def weight_graph(C):
 #index to resolve the correct row entry
 def group_indecies(C):
     c_i,i_c,i = {},{},0
-    for g in sorted(C.keys()):
+    for g in sorted(list(C.keys())):
         c_i[g]=i
         for j in range(i,i+len(C[g])): i_c[j]=g
         i+=len(C[g])
@@ -1425,9 +1437,9 @@ def get_x_i(A):
 
 #clear off terminal edges of A and clear keys as needed
 def del_edges(A):
-    k = A.keys()
+    k = list(A.keys())
     for i in range(len(k)): #take value 1 keys for each class
-        if A[k[i]].has_key(1):
+        if 1 in A[k[i]]:
             while len(A[k[i]][1]) > 0:
                 A[k[i]][0].remove(A[k[i]][1][0])
                 A[k[i]][1].remove(A[k[i]][1][0])
@@ -1440,19 +1452,19 @@ def del_edges(A):
 #add class memebers to overlap other class members as well
 def add_edges(A,B):
     for k in B:
-        if A.has_key(k):
+        if k in A:
             for e in B[k]:
-                if A[k].has_key(e): A[k][e] += [l for l in B[k][e]]
-                else:               A[k][e]  = [l for l in B[k][e]]
-        else:       A[k] = {e:[l for l in B[k][e]] for e in B[k]}
+                if e in A[k]: A[k][e] += [l for l in B[k][e]]
+                else:         A[k][e]  = [l for l in B[k][e]]
+        else:                 A[k] = {e:[l for l in B[k][e]] for e in B[k]}
 
 #return the set of weights from X still in coordinate sorted order
 def get_weights(X):
     W = {}
     if len(X)>0:
         for i in range(len(X)):   #generate disjoint weight and length (area)
-            c = X[i][3].keys()[0] #assume single classes to start
-            if W.has_key(c):
+            c = list(X[i][3].keys())[0] #assume single classes to start
+            if c in W:
                 for g in X[i][3][c]:
                     W[c][g] = [X[i][2],1.0*(X[i][1]-X[i][0]+1.0)] #static positions here
             else:
@@ -1525,7 +1537,7 @@ def scan_graph(G,scale=True,filter=None): #while offer additional weighting corr
     X,C,c_i,i_c = G
     P,Q,V,A,B,D = [],[],[],{},{},set([]) #A is alive edge stack, B is the current edge set
     if len(X)>0:
-        V = sorted(C.keys())  #V is sorted vertices, where disjoint => |V|-1 = |X|*2
+        V = sorted(list(C.keys()))  #V is sorted vertices, where disjoint => |V|-1 = |X|*2
         for i in range(0,len(V)-1):   #scan i-1,i,i+1 up to padding
             B = C[V[i]]               #get edges for v[i+1]
             D = {m for l in [C[V[i]][k] for k in C[V[i]]] for m in l}  #check edge direction for i
@@ -1628,9 +1640,9 @@ def open_pos(mnv_vcam, sv_vcam, gs):
     open_mnv = {k:[[0,gs[k]]] for k in gs}
     open_sv  = {k:[[0,gs[k]]] for k in gs}
     for k in gs:
-        if mnv_pos_map.has_key(k):
+        if k in mnv_pos_map:
             open_mnv[k] = utils.LRF_1D(open_mnv[k],mnv_pos_map[k])[2]
-        if sv_pos_map.has_key(k):
+        if k in sv_pos_map:
             open_sv[k]  = utils.LRF_1D(open_sv[k],sv_pos_map[k])[2]
     return open_mnv,open_sv
 
@@ -1652,17 +1664,17 @@ def prop_class_mut_pos(M,wcu,gene_map):
             for t in M[k]:
                 gen_wcu[k][t] = [[M[k][t][i][0], M[k][t][i][1], 0.0, {t: set(['%s_%s' % (t, i + 1)])}] for i in range(len(M[k][t]))]
                 wcu_i[k][t] = {}  # wcu can be genes and gens can overlap so you may get more than one index back
-                if wcu.has_key(k):
+                if k in wcu:
                     for i in range(len(wcu[k])):
                         idx = wcu[k][i][3]
                         for g in idx[c]:
-                            if wcu_i[k][t].has_key(g): wcu_i[k][t][g] += [i]
-                            else:                      wcu_i[k][t][g]  = [i]
+                            if g in wcu_i[k][t]: wcu_i[k][t][g] += [i]
+                            else:                wcu_i[k][t][g]  = [i]
         I = {}
         for k in gen_wcu:
             for t in gen_wcu[k]:
-                if I.has_key(t): I[t][k] = gen_wcu[k][t]
-                else:            I[t] = {k:gen_wcu[k][t]}
+                if t in I: I[t][k] = gen_wcu[k][t]
+                else:      I[t] = {k:gen_wcu[k][t]}
         I.update({c:wcu})
         merge = merge_wcu(I)  # this does all k in wcu, M
         for k in M:  # only update those events that intersect with the class to update them
@@ -1671,17 +1683,13 @@ def prop_class_mut_pos(M,wcu,gene_map):
             for t in M[k]:
                 C,T,D,N = {},{},{},[]
                 for p in P:
-                    if p[3].has_key(c) and p[3].has_key(t):  # classes intersect
+                    if c in p[3] and t in p[3]:  # classes intersect
                         for i in p[3][c]:  # for each gene in the class
                             for j in p[3][t]:  # map each event to it
-                                if C.has_key(i):
-                                    C[i].add(j)
-                                else:
-                                    C[i] = set([j])
-                                if T.has_key(j):
-                                    T[j].add(i)
-                                else:
-                                    T[j] = set([i])
+                                if i in C: C[i].add(j)
+                                else:      C[i] = set([j])
+                                if j in T: T[j].add(i)
+                                else:      T[j] = set([i])
                 for j in T:
                     if len(T[j]) > 1:
                         T[j] = set([T[j].pop()])
@@ -1692,14 +1700,14 @@ def prop_class_mut_pos(M,wcu,gene_map):
                                 D[i] = set([C[i].pop()])
                                 break
                     else: D[i] = C[i]
-                if wcu.has_key(k): B[k][t] = [len(D),len(wcu[k]),len(M[k][t]),1.0]
-                else:              B[k][t] = [0,0,len(M[k][t]),1.0]
-            if gene_map['seq'].has_key(k):
+                if k in wcu: B[k][t] = [len(D),len(wcu[k]),len(M[k][t]),1.0]
+                else:        B[k][t] = [0,0,len(M[k][t]),1.0]
+            if k in gene_map['seq']:
                 B[k]['genes'] = len(gene_map['seq'][k])
     else:
         for k in M:
             B[k] = {}
-            if gene_map['seq'].has_key(k):
+            if k in gene_map['seq']:
                 B[k]['genes'] = len(gene_map['seq'][k])
     return B
 
@@ -1719,27 +1727,27 @@ def extend_class_mut_pos(M,t,wcu):
     if len(c)>0:
         c = c[0]
         for k in M:
-            if M[k].has_key(t):
+            if t in M[k]:
                 gen_wcu[k] = [[M[k][t][i][0],M[k][t][i][1],0.0,{t: set(['%s_%s'%(t,i+1)])}] for i in range(len(M[k][t]))]
                 wcu_i[k] = {} #wcu can be genes and gens can overlap so you may get more than one index back
                 for i in range(len(wcu[k])):
                     idx = wcu[k][i][3]
                     for g in idx[c]:
-                        if wcu_i[k].has_key(g): wcu_i[k][g] += [i]
-                        else:                   wcu_i[k][g]  = [i]
+                        if g in wcu_i[k]: wcu_i[k][g] += [i]
+                        else:             wcu_i[k][g]  = [i]
         intersect = merge_wcu({c:wcu,t:gen_wcu}) #this does all k in wcu, M
         for k in M: #only update those events that intersect with the class to update them
             C,T,D,N,I = {},{},{},[],[]
             G = weight_graph(intersect[k])
             P = scan_graph(G)
             for p in P:
-                if p[3].has_key(c) and p[3].has_key(t): #classes intersect
+                if c in p[3] and t in p[3]: #classes intersect
                     for i in p[3][c]:         #for each gene in the class
                         for j in p[3][t]:           #map each event to it
-                            if C.has_key(i): C[i].add(j)
-                            else:            C[i] = set([j])
-                            if T.has_key(j): T[j].add(i)
-                            else:            T[j] = set([i])
+                            if i in C: C[i].add(j)
+                            else:      C[i] = set([j])
+                            if j in T: T[j].add(i)
+                            else:      T[j] = set([i])
             for j in T:
                 if len(T[j])>1:
                     T[j] = set([T[j].pop()])
@@ -1754,7 +1762,7 @@ def extend_class_mut_pos(M,t,wcu):
                 e = list(D[d])[0]
                 N += [[wcu[k][i][0],wcu[k][i][1]] for i in wcu_i[k][d]]
             for p in P:
-                if len(p[3])<=1 and p[3].has_key(t):
+                if len(p[3])<=1 and t in p[3]:
                     I += [int(x.split('_')[-1])-1 for x in p[3][t]]
             for i in I: N += [M[k][t][i]]
             M2[k][t] = sorted(N,key=lambda x: x[0])
@@ -1767,11 +1775,11 @@ def extend_class_mut_pos(M,t,wcu):
 #tra_dict = {'chr11':[[0,100],...],'chr22':[]}
 def gen_tra_map(tra_dict):
     T = {}
-    while len(tra_dict.keys())>=2:
-        i = np.random.choice(range(len([0 for a,b in it.permutations(tra_dict.keys(),2)])))
-        j,k = [(a,b) for a,b in it.permutations(tra_dict.keys(),2)][i]
+    while len(list(tra_dict.keys()))>=2:
+        i = np.random.choice(range(len([0 for a,b in it.permutations(list(tra_dict.keys()),2)])))
+        j,k = [(a,b) for a,b in it.permutations(list(tra_dict.keys()),2)][i]
         if len(tra_dict[j])>=1 and len(tra_dict[k])>=1:
-            if T.has_key(j):
+            if j in T:
                 route = {'SCHR':k,'SPOS':[],'DPOS':[]}
                 route['DPOS'] = tra_dict[j].pop(np.random.choice(range(len(tra_dict[j]))))
                 route['SPOS'] = tra_dict[k].pop(np.random.choice(range(len(tra_dict[k]))))
@@ -1840,14 +1848,14 @@ def get_inner_genotypes(mut_pos,genotypes,inner_pos):
 #part_map = {p1:[1,5,6,8,9,10], p2:[2,3,4,7], ...} have to use index_only=True with partition_pos
 #AM = {node_id:set([1,2,3,4,5,6,7,...]), node_id:set([1,2,3,4]), ...}
 def gen_clone_allele_map(part_map,CT):
-    A,AM,clones = {},{},sorted(CT.nodes.keys(),key=lambda x: int(x.split('_')[-1]))
+    A,AM,clones = {},{},sorted(list(CT.nodes.keys()),key=lambda x: int(x.split('_')[-1]))
     for clone in clones: #get the decendants of each clone
         A[clone]  = sorted(CT.ancestors(clone),key=lambda x: int(x.split('_')[-1]))
         AM[clone] = []
     for i in range(len(clones)):
-        if part_map.has_key(i):
-            if AM.has_key(clones[i]): AM[clones[i]] += copy.deepcopy(part_map[i])
-            else:                     AM[clones[i]]  = copy.deepcopy(part_map[i])
+        if i in part_map:
+            if clones[i] in AM: AM[clones[i]] += copy.deepcopy(part_map[i])
+            else:               AM[clones[i]]  = copy.deepcopy(part_map[i])
     for clone in clones: #if there are not enough calls to share for partitions
         for k in A[clone]: AM[clone] += AM[k]
     for clone in clones:   AM[clone] = set(AM[clone])
@@ -1883,9 +1891,9 @@ def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,
             if verbose: print('ref region is >0.5 proportion masked at seq=%s,pos=%s-%s'%(chrom,pos[0],pos[1]))
             i += 1
         else:
-            if type(mut_type) is dict and mut_type.has_key('DUP'): #only apply dups at pos or prior to pos for distal...
-                dup_type = np.random.choice(mut_type['DUP']['TYPE'])
-                d_cn     = np.random.choice(mut_type['DUP']['CN']) #randomly CN is the number of duplications CN2 is a ICN==4
+            if type(mut_type) is dict and 'DUP' in mut_type: #only apply dups at pos or prior to pos for distal...
+                dup_type = np.random.choice(list(mut_type['DUP']['TYPE']))
+                d_cn     = np.random.choice(list(mut_type['DUP']['CN'])) #randomly CN is the number of duplications CN2 is a ICN==4
                 alt      = '<DUP>'
                 if dup_type=='DISPERSED': #injected backward for clarity and correctness
                     if i+d_cn<len(mut_pos):
@@ -1906,7 +1914,7 @@ def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,
                            (pos[1],pos[1]-pos[0],dup_pos,dup_type,2*d_cn)
                     vca += [gen_var_call(chrom,pos[0],ref,alt,info,geno)]
                     i   += 1 #consume just the TANDEM DUP
-            elif type(mut_type) is dict and mut_type.has_key('TRA'):   #SHOULD ENABLE DEL OR INS TYPES
+            elif type(mut_type) is dict and 'TRA' in mut_type:   #SHOULD ENABLE DEL OR INS TYPES
                 tra_type = np.random.choice(mut_type['TRA']['TYPE'])
                 if tra_type=='DEL':
                     a,b = pos[0],pos[1] #svlen = length of missing CHR1 section
@@ -1937,7 +1945,7 @@ def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,
                 info = 'SVTYPE=INS;END=%s;SVLEN=%s;'%(pos[0],pos[1]-pos[0])
                 vca += [gen_var_call(chrom,pos[0],ref,alt,info,geno)]
                 i   += 1
-            elif type(mut_type) is dict and mut_type.has_key('INV'):
+            elif type(mut_type) is dict and 'INV' in mut_type:
                 alt  = utils.get_reverse_complement(ref)
                 info = 'SVTYPE=INV;END=%s;SVLEN=%s;INV_TYPE=%s'%\
                        (pos[1],pos[1]-pos[0],np.random.choice(mut_type['INV']['TYPE']))
@@ -2230,7 +2238,7 @@ def get_seq_pos(S,q):
 def merge_filter_sort_vcam(vcam,aneuploidy,small_cut=50,large_cut=int(260E6)):
     final,dki = [],{}
     for k in vcam:
-        if aneuploidy.has_key(k):
+        if k in aneuploidy:
             print('there is chrom %s aneuploidy'%k)
             for j in range(len(aneuploidy[k])):
                 an_svtype = get_info_type(aneuploidy[k][j].info)
@@ -2312,7 +2320,7 @@ def write_vcf(samples,vca,seqs,ref_path,out_path):
 
 #takes in the CT and adds pedegree tags
 def write_somatic_vcf(CT,vca,seqs,ref_path,out_path):
-    samples = sorted(CT.nodes.keys(),key=lambda x: int(x.rsplit('_')[-1]))
+    samples = sorted(list(CT.nodes.keys()),key=lambda x: int(x.rsplit('_')[-1]))
     tree = copy.deepcopy(CT.tree)
     data_path   = os.path.dirname(os.path.abspath(__file__))+'/data/'
     header_path = data_path+'/header_template.vcf'
@@ -2376,7 +2384,7 @@ def write_merged_somatic_vcf(normal_vcf,somatic_vcf,out_path):
             idx = (t[0],int(t[1]),get_info_end(t[7]),get_info_type(t[7]),tuple(get_genotype(t[9],0)))
             if idx not in M: M[idx] = t
         print('sorting by chrom and start coordinate and enumerating VC id fields')
-        for m in sorted(M.keys(),key=lambda x: (x[0].zfill(100),x[1])):
+        for m in sorted(list(M.keys()),key=lambda x: (x[0].zfill(100),x[1])):
             s += '\t'.join(M[m])+'\n'
         print('writing %s results to merged vcf file'%len(M))
         with open(out_path,'w') as f:
@@ -2420,7 +2428,7 @@ def write_split_somatic_vcf(normal_vcf,somatic_vcf,out_path):
             idx = (t[0],int(t[1]),get_info_end(t[7]),get_info_type(t[7]),tuple(get_genotype(t[9],0)))
             if idx not in N and idx not in M: M[idx] = t
         print('sorting by chrom and start coordinate and enumerating VC id fields')
-        for m in sorted(M.keys(), key=lambda x: (x[0].zfill(100), x[1])):
+        for m in sorted(list(M.keys()), key=lambda x: (x[0].zfill(100), x[1])):
             s += '\t'.join(M[m]) + '\n'
         print('writing %s results to merged vcf file' % len(M))
         with open(out_path, 'w') as f:
@@ -2475,8 +2483,8 @@ def write_clone_vcf(somatic_vcf,out_path):
     for row in data:
         for i in range(0,len(row[9:])):
             if row[9:][i].find('1')>=0:
-                if outs.has_key(i_k[i]): outs[i_k[i]] += [row[:9]+[row[9+k_i[i_k[i]]]]]
-                else:                    outs[i_k[i]]  = [row[:9]+[row[9+k_i[i_k[i]]]]]
+                if i_k[i] in outs: outs[i_k[i]] += [row[:9]+[row[9+k_i[i_k[i]]]]]
+                else:              outs[i_k[i]]  = [row[:9]+[row[9+k_i[i_k[i]]]]]
     for sample in outs:
         sample_vcf = out_path+'/%s.somatic_S0.vcf'%sample
         with open(sample_vcf,'w') as f:

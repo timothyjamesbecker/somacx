@@ -1,4 +1,4 @@
-#Timothy James Becker, PhD candidate, UCONN 01/10/2017-01/06/2018
+#Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
 #cython edit distance algorithms, string processing utils, weighted_random distribution
 #c imports
 cimport cython
@@ -9,7 +9,7 @@ import random
 import itertools as it
 import numpy as np
 import pysam
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 #uses the boundry in A to rescale the values in R
 #destructively edits values in R as a result
 @cython.boundscheck(False)

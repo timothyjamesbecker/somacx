@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-#Timothy James Becker, PhD candidate, UCONN 01/01/2017-02/02/2020
+#Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
 #soMaCX: Somatic Complex SV Diploid Genome Generator, produces disjoint SVs on demand and then
 #allows for secondary SV layers to be introduced using several parameters
 #supported types are INS, DEL, SUB, TANDEM DUP, DISPERSED DUP, INV DUP, INV,COMPLEX INV, TRA (chroma->chromB)
 #each of these can have inner layers of INS, DEL, DUP, ect using a distribution and
 #a separate breakpoint probability that allows for easily setting DEL, INS directly on
-#DUP or INV break ends, thereby providing a realiable, distribution based test platform for simulation
-#as FASTA and VCF formated files provided easy benchmarking
+#DUP or INV break ends, thereby providing a realiable, distribution-based test platform for simulation
+#as FASTA and VCF formated files provide easy benchmarking
 
 import argparse
 import os
+import sys
 import glob
 import gzip
 import json
@@ -19,9 +20,13 @@ import somacx.read_utils as ru
 import somacx.variant_utils as vu
 import somacx.sim as sim
 
-def str_hook(obj):
-    return {k.encode('utf-8') if isinstance(k,unicode) else k:
-            v.encode('utf-8') if isinstance(v, unicode) else v for k,v in obj}
+if sys.version_info.major<3:
+    def str_hook(obj):
+        return {k.encode('utf-8') if isinstance(k,unicode) else k:
+                v.encode('utf-8') if isinstance(v, unicode) else v for k,v in obj}
+else:
+    def str_hook(obj):
+        return {k:v for k,v in obj}
 
 #util functions for unpackaging and dispersing json data
 def disperse_complex_generator_json(json_path,out_dir):
@@ -64,9 +69,14 @@ def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_wild
                     C[k.rsplit('/')[-1].rsplit('.json.gz')[0]] = json.load(f,object_pairs_hook=str_hook)
     if gz:
         if not json_path.endswith('.gz'): json_path += '.gz'
-        with gzip.open(in_dir+json_path,'w') as f:
-            f.write(json.dumps(C))
-            return True
+        if sys.version_info.major<3:
+            with gzip.open(in_dir+json_path,'w') as f:
+                f.write(json.dumps(C))
+                return True
+        else:
+            with gzip.open(in_dir+json_path,'wb') as f:
+                f.write(bytes(json.dumps(C),'utf_8'))
+                return True
         return False
     else:
         with open(in_dir+json_path,'w') as f:
@@ -130,7 +140,7 @@ else:
     ks = [str(i) for i in range(1,23)]+['X','Y','MT']
 if args.ref_chroms is not None:
     rs = args.ref_chroms.split(',')
-    kk = S.keys()
+    kk = list(S.keys())
     for k in kk:
         if k not in rs: S.pop(k)
     kk = sorted(S,key=lambda x: x.zfill(max([len(k) for k in S])))
@@ -141,7 +151,7 @@ else:#1-22,X,Y,MT and chr checking prefix
         for s in ss:
             if k.upper()==s.upper():           rs += [k]
             elif k.upper()==('chr'+s).upper(): rs += [k]
-    kk = S.keys()
+    kk = list(S.keys())
     for k in kk:
         if k not in rs: S.pop(k)
     kk = sorted(S,key=lambda x: x.zfill(max([len(k) for k in S])))
@@ -250,7 +260,7 @@ if prior_vcf is not None: #via FusorSV_VCF file
     if 'Y' not in vcf_vcam and 'Y' in S: S.pop('Y')
     print('checking VCF call conflicts')
     vcf_vcam = vu.vcam_remove_conflicts(vcf_vcam)
-    print('variantion is present on: %s'%vcf_vcam.keys())
+    print('variantion is present on: %s'%list(vcf_vcam.keys()))
 
 print('ks = %s rs = %s at germline_genome start'%(ks,rs))
 #not fully expressed, but getting closer to germline goal once transposons are in place

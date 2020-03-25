@@ -1,4 +1,4 @@
-#Timothy James Becker, PhD candidate, UCONN 01/10/2017-01/06/2018
+#Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
 #modifying this library to have the ability to skip the NNNNN regions of the regnome
 #could also get into the alignibilty of a given read length onto a seq like genome strip...
 
@@ -75,21 +75,21 @@ def get_fasta_seq_names_lens(fasta_path):
         ss[names[i]]=lens[i]
     return ss   
     
-def write_fasta(seqs,fasta_path,index=True):
+def write_fasta(seqs,fasta_path,index=True,offset=80):
     with open(fasta_path,'w') as fasta:
         for k in seqs:
-            fasta.write('\n'.join(['>%s'%k]+[seqs[k][i:(i+80)] for i in range(0,len(seqs[k]),80)]+['\n']))
+            fasta.write('\n'.join(['>%s'%k]+[seqs[k][i:(i+offset)] for i in range(0,len(seqs[k]),offset)]+['\n']))
     if index: pysam.faidx(fasta_path) #reindex
     return True    
     
 #ss is a HTSeq Sequence list?   
-def write_fasta_by_chrom(seqs, chrom_fasta_dir, chrom_base=''):
+def write_fasta_by_chrom(seqs,chrom_fasta_dir,chrom_base='',offset=80):
     names = []
     for k in seqs:
         name = chrom_fasta_dir+'/'+chrom_base+k+'.fa'
         names += [name]
         with open(name, 'w') as fasta:
-            fasta.write('\n'.join(['>%s'%k]+[seqs[k][i:(i+80)] for i in range(0,len(seqs[k]),80)]+['\n']))
+            fasta.write('\n'.join(['>%s'%k]+[seqs[k][i:(i+offset)] for i in range(0,len(seqs[k]),offset)]+['\n']))
     return names
 
 def write_fasta_mask(M,json_path):
@@ -116,8 +116,8 @@ def write_coordinate_offsets(fasta_path,json_path):
     l_i = list(np.argsort([L[k] for k in L]))[::-1] #sort by max length
     O,offset = {},0 #starts at zero
     for i in l_i:
-        O[L.keys()[i]] = offset
-        offset = offset+L[L.keys()[i]] #old + new + 1
+        O[list(L.keys())[i]] = offset
+        offset = offset+L[list(L.keys())[i]] #old + new + 1
     with open(json_path,'w') as f:
         json.dump(O,f)
     return True

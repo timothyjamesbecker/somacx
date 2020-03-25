@@ -70,7 +70,7 @@ else:                         threads = 4
 
 if __name__ == '__main__':
     for fastq_path in fastq_paths:
-        print('starting processing fastq_path=%s'%fastq_path)
+        print('started processing fastq_path=%s'%fastq_path)
         s_start = time.time()
         if platform=='illumina':
             print('illumina platform selected...')
