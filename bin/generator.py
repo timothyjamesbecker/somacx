@@ -28,6 +28,53 @@ else:
     def str_hook(obj):
         return {k:v for k,v in obj}
 
+#germline_gl_gain_wcu.json, germline_gl_los_wcu.json,somatic_gl_gain_wcu.json,somatic_gl_loss_wcu.json
+def gene_list_update(genes,weights,label,verbose=False):
+    jsons = {'germline_gain':'germline_%s_gain_wcu.json','germline_loss':'germline_%s_loss_wcu.json',
+             'somatic_gain': 'somatic_%s_gain_wcu.json', 'somatic_loss': 'somatic_%s_loss_wcu.json'}
+    for g in jsons:
+        if g in weights:
+            if verbose: print('updating genes=%s for %s'%(genes,g))
+            ws = [weights[g] for i in range(len(genes))]
+            wcu = vu.gene_list_to_wcu(genes,ws,gene_map,label=label)
+            vu.write_json_wcu(out_dir+'/meta/'+jsons[g]%label,wcu)
+    return True
+
+def update_all_gene_lists(svmask_w=0.0,apot_w=5E1,g1kp3_w=2E1,mitcp_w=1E2,mmej_w=1E2,nhej_w=5E1,onco_w=1E2):
+    svmask_wcu = vu.json_mask_to_wcu(vu.get_local_path('svmask.hg38.json'),w=svmask_w,label='svmask')
+    vu.write_json_wcu(out_dir+'/meta/germline_svmask_gain_wcu.json',svmask_wcu)
+    vu.write_json_wcu(out_dir+'/meta/germline_svmask_loss_wcu.json',svmask_wcu)
+    vu.write_json_wcu(out_dir+'/meta/somatic_svmask_gain_wcu.json',svmask_wcu)
+    vu.write_json_wcu(out_dir+'/meta/somatic_svmask_loss_wcu.json',svmask_wcu)
+
+    apot_genes = vu.read_gene_list(vu.get_local_path('apotosis_thermofisher_gene_list.txt'))
+    apot_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':0.0, 'somatic_loss':apot_w}
+    gene_list_update(apot_genes,apot_weights,label='apot')
+
+    g1kp3_genes = vu.read_gene_list(vu.get_local_path('g1kp3_filtered_gene_list.txt'))
+    g1kp3_weights = {'germline_gain':g1kp3_w,'germline_loss':g1kp3_w,'somatic_gain':g1kp3_w/2, 'somatic_loss':g1kp3_w/2}
+    gene_list_update(g1kp3_genes,g1kp3_weights,label='g1kp3')
+
+    mitcp_genes = vu.read_gene_list(vu.get_local_path('mitcp_giam_gene_list.txt'))
+    mitcp_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':0.0, 'somatic_loss':mitcp_w}
+    gene_list_update(mitcp_genes,mitcp_weights,label='mitcp')
+
+    mmej_genes = vu.read_gene_list(vu.get_local_path('mmej_sharma_gene_list.txt'))
+    mmej_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':0.0, 'somatic_loss':mmej_w}
+    gene_list_update(mmej_genes,mmej_weights,label='mmej')
+
+    nhej_genes = vu.read_gene_list(vu.get_local_path('nhej_davis_gene_list.txt'))
+    nhej_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':0.0, 'somatic_loss':nhej_w}
+    gene_list_update(nhej_genes,nhej_weights,label='nhej')
+
+    onco_genes = vu.read_gene_list(vu.get_local_path('mmej_sharma_gene_list.txt'))
+    onco_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':onco_w, 'somatic_loss':0.0}
+    gene_list_update(onco_genes,onco_weights,label='onco')
+
+def cross_check_ref_to_gene_map(ks,rs,gene_map):
+    gene_ks = sorted(list(gene_map['seq'].keys()))
+    return all([k in gene_ks for k in ks]) and all([r in gene_ks for r in rs])
+
 #util functions for unpackaging and dispersing json data
 def disperse_complex_generator_json(json_path,out_dir):
     if json_path.endswith('.gz'):
@@ -44,12 +91,12 @@ def disperse_complex_generator_json(json_path,out_dir):
     return True
 
 #util functions for packaging json data into a single full json file
-def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_wild,g_gain_wild,
-                                 s_var_map,s_loss_wild,s_gain_wild,s_anueuploidy,clone_tree,gz=True):
+def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_pat,g_gain_pat,
+                                 s_var_map,s_loss_pat,s_gain_pat,s_aneuploidy,clone_tree,gz=True):
 
     C = {'gene_map':in_dir+gene_map,'g_var_map':in_dir+g_var_map,'s_var_map':in_dir+s_var_map,
-         'clone_tree':in_dir+clone_tree,'somatic_aneueploidy':in_dir+s_anueuploidy}
-    W = [in_dir+g_loss_wild,in_dir+g_gain_wild,in_dir+s_loss_wild,in_dir+s_gain_wild]
+         'clone_tree':in_dir+clone_tree,'somatic_aneuploidy':in_dir+s_aneuploidy}
+    W = [in_dir+g_loss_pat,in_dir+g_gain_pat,in_dir+s_loss_pat,in_dir+s_gain_pat]
     for c in C:
         print('loading %s'%c)
         if C[c].endswith('.gz'):
@@ -134,10 +181,6 @@ if args.out_dir is not None:
 else:
     print('output directory not specified')
     raise IOError
-if args.chroms is not None:
-    ks = args.chroms.split(',')
-else:
-    ks = [str(i) for i in range(1,23)]+['X','Y','MT']
 if args.ref_chroms is not None:
     rs = args.ref_chroms.split(',')
     kk = list(S.keys())
@@ -156,10 +199,26 @@ else:#1-22,X,Y,MT and chr checking prefix
         if k not in rs: S.pop(k)
     kk = sorted(S,key=lambda x: x.zfill(max([len(k) for k in S])))
 print('starting SV generation with seqs=%s'%kk)
-if args.complex_generator_json == 'DEFAULT':
-    disperse_complex_generator_json(vu.get_local_path()+'full.json',out_dir)
-    args.complex_generator_json = vu.get_local_path()+'full.json'
+if args.chroms is not None:
+    ks = args.chroms.split(',')
+    if not all([k in ks for k in kk]):
+        ks = ['chr%s'%i for i in ks]
+        if not all([k in ks for k in kk]):
+            print('variation sequences and reference sequence do not match!')
+            raise AttributeError
+else:
+    ks = [str(i) for i in range(1,23)]+['X','Y','MT']
+    if not all([k in ks for k in kk]):
+        ks = ['chr%s'%i for i in range(1,23)]+['chrX','chrY','chrM']
+        if not all([k in ks for k in kk]):
+            print('variation sequences and reference sequence do not match!')
+            raise AttributeError
+if args.complex_generator_json == 'hg38':
+    full_json = 'full.hg38.json.gz'
+    disperse_complex_generator_json(vu.get_local_path()+full_json,out_dir)
+    args.complex_generator_json = vu.get_local_path()+full_json
 elif args.complex_generator_json is not None:
+    full_json = args.complex_generator_json.rsplit('/')[-1]
     disperse_complex_generator_json(args.complex_generator_json,out_dir)
 else:
     full_json = None
@@ -200,38 +259,34 @@ start = time.time()
 print('reading gene map...')
 if not os.path.exists(out_dir+'/meta/gene_map.json'):
     print('didn\'t find a pre-processed gene map, building a new one...')
-    gene_map = vu.build_ucsc_gene_exon_map(vu.get_local_path('refGene.txt.gz'))
+    gene_map = vu.build_ucsc_gene_exon_map(vu.get_local_path('refGene.hg38.gz'))
     vu.write_json_gene_map(out_dir+'/meta/gene_map.json',gene_map)
     print('completed building a json gene map')
-gene_map    = vu.read_json_gene_map(out_dir+'/meta/gene_map.json')
+gene_map = vu.read_json_gene_map(out_dir+'/meta/gene_map.json')
+if not cross_check_ref_to_gene_map(ks,rs,gene_map):
+    print('chrom seq defaults from the reference fasta %s do not match the gene_map seqs:%s'\
+          %(ref_path,sorted(list(gene_map['seq'].keys()))))
+    raise AttributeError
 
 #::UPDATING DISTRIBUTIONS::######################################################################################
 #read a genelist and store as a wcu json file for building the full json
-mitcp_genes = vu.read_gene_list(vu.get_local_path('mitcp_giam_gene_list.txt'))
-mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[0.0 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(out_dir+'/meta/'+'germline_mitcp_gain_wcu.json',mitcp_wcu)
-mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[0.0 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(out_dir+'/meta/'+'germline_mitcp_loss_wcu.json',mitcp_wcu)
-mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[0.0 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(out_dir+'/meta/'+'somatic_mitcp_gain_wcu.json',mitcp_wcu)
-mitcp_wcu   = vu.gene_list_to_wcu(mitcp_genes,[1E2 for i in range(len(mitcp_genes))],gene_map,label='mitcp')
-vu.write_json_wcu(out_dir+'/meta/'+'somatic_mitcp_loss_wcu.json',mitcp_wcu)
-# #write out a full complex_generator_json from several seperate ones
+# update_all_gene_lists() #update if using new reference files so that the gene lists dat will get mapped correctly
 
+
+# #write out a full complex_generator_json from several seperate one
 print('updating the full param file')
 write_complex_generator_json(in_dir=out_dir+'/meta/',
-                             json_path='full.json',
+                             json_path=full_json,
                              gene_map='gene_map.json',
                              g_var_map='g_var_map.json',
-                             g_loss_wild='germline_*_loss_wcu.json',
-                             g_gain_wild='germline_*_gain_wcu.json',
+                             g_loss_pat='germline_*_loss_wcu.json',
+                             g_gain_pat='germline_*_gain_wcu.json',
                              s_var_map='s_var_map.json',
-                             s_loss_wild='somatic_*_loss_wcu.json',
-                             s_gain_wild='somatic_*_gain_wcu.json',
-                             s_anueuploidy='somatic_anueuploidy.json',
+                             s_loss_pat='somatic_*_loss_wcu.json',
+                             s_gain_pat='somatic_*_gain_wcu.json',
+                             s_aneuploidy='somatic_aneuploidy.json',
                              clone_tree='clone_tree.json')
 print('finished with full param file')
-disperse_complex_generator_json(args.complex_generator_json,out_dir) #copies all params to meta folder
 #::UPDATING DISTRIBUTIONS::######################################################################################
 
 #load the first germline mutation map derived from g1kp3 distributions
@@ -302,7 +357,7 @@ for k in rs:
     if k not in gain_wcu: gain_wcu[k] = {}
 
 #sim.somatic_genomes test case-----------
-anueuploidy = vu.read_json_anueuploidy(out_dir+ '/meta/somatic_anueuploidy.json')
+aneuploidy = vu.read_json_aneuploidy(out_dir+ '/meta/somatic_aneuploidy.json')
 mut_p,gs = somatic_var_map,S
 print('starting initialization of somatic clonal tree using params:')
 print('sample=%s clone_tree_params=%s clone_tree_path=%s'%(sample,clone_tree_params,clone_tree_path))
@@ -312,7 +367,7 @@ CT,M,T,s_vcam,s_loss,s_gain,s_rate,s_over = sim.somatic_genomes(ref_path,out_dir
                                                                 gen_center=center,
                                                                 clone_tree_path=clone_tree_path,
                                                                 clone_tree_params=clone_tree_params,
-                                                                anueuploidy=anueuploidy,
+                                                                aneuploidy=aneuploidy,
                                                                 small_cut=small_cut)
 # print('germline generation enrichment targets:')
 # sim.display_rlg(ks,g_rate,g_loss,g_gain)

@@ -572,7 +572,8 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
         vcam[1][k],vcam[2][k],vcam[3][k],vca = [],[],[],[]
 
         ploidy = 2
-        if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'): ploidy = 1
+        if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'):ploidy = 1
+        if 'chrY' in ks and 'chrX' in ks and (k == 'chrY' or k == 'chrX'): ploidy = 1
         print('processing seq=%s with ploidy=%s----------------' % (k, ploidy))
 
         # start with a some SNV before SV ----------------------------------------------
@@ -590,6 +591,10 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
             print('L1: applied %s SNV, MNV to seq %s' % (len(vca), k))
             vcam[1][k] += vca
             vcam[1][k] = sorted(vcam[1][k],key=lambda x:(x.chrom.zfill(100),x.pos))
+        else:
+            mut1 = copy.deepcopy(seqs[k])
+            if ploidy > 1:
+                mut2 = copy.deepcopy(seqs[k])
         # now set total SVs and partition into DEL,DUP,INV,TRA
         ins_vca,del_vca,dup_vca,tra_vca,inv_vca = [],[],[],[],[]
         inside_del_vca,inside_ins_vca,comp_del_vca,comp_ins_vca,flanking_dup_vca = [],[],[],[],[]
@@ -752,7 +757,7 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
 #somatic workflow that generates heterogenious data through a CSC or sub clonal model
 def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene_map,
                     gen_method='fast',gz=True,clean=True,gen_center=False,write_snv_indel=True,
-                    small_cut=50,clone_tree_path=None,clone_tree_params=None,anueuploidy=None):
+                    small_cut=50,clone_tree_path=None,clone_tree_params=None,aneuploidy=None):
     if gz: ext_pat,idx_pat = '.fa.gz','i'
     else:  ext_pat,idx_pat = '.fa','.fai'
     #[1] generate the clone tree using model=0.0->CSC or model=1.0->sub clonal for hetergeneity
@@ -840,17 +845,14 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
     T = vu.gen_tra_map(TK)
 
     s_A = None
-    if anueuploidy is not None:
-        print('anueuploidy is being modeled')
-        ploidy_map = {str(i):2 for i in range(1,23)}
-        ploidy_map['MT'] = 2
-        if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'):ploidy_map['X'],ploidy_map['Y'] = 1,1
-        else: ploidy_map['X'] = 2
-        print('base anueuploidy is %s'%anueuploidy)
-        mod_anueuploidy = vu.adjust_anueuploidy_effect(anueuploidy,ploidy_map,loss,dist='uniform')
-        print('modified anueuploidy is %s'%mod_anueuploidy)
-        s_A = vu.gen_anueuploidy({k:ru.read_fasta_chrom(ref_path,k) for k in ks},ploidy_map,CT,mod_anueuploidy)
-        print('anueuploidy has been generated for chrom %s'%list(s_A.keys()))
+    if aneuploidy is not None:
+        print('aneuploidy is being modeled')
+        ploidy_map = {k:aneuploidy[k]['n'] for k in aneuploidy}
+        print('base aneuploidy is %s'%aneuploidy)
+        mod_aneuploidy = vu.adjust_aneuploidy_effect(aneuploidy,ploidy_map,loss,dist='uniform')
+        print('modified aneuploidy is %s'%mod_aneuploidy)
+        s_A = vu.gen_aneuploidy({k:ru.read_fasta_chrom(ref_path,k) for k in ks},ploidy_map,CT,mod_aneuploidy)
+        print('aneuploidy has been generated for chrom %s'%list(s_A.keys()))
         print(s_A)
 
     f_start = time.time()

@@ -262,7 +262,7 @@ if not os.path.exists(out_dir+'/meta/'): os.mkdir(out_dir+'/meta/')
 
 if not os.path.exists(out_dir+'/meta/gene_map.json'):
     print('didn\'t find a pre-processed gene map, building a new one...')
-    gene_map = vu.build_ucsc_gene_exon_map(vu.get_local_path('refGene.txt.gz'))
+    gene_map = vu.build_ucsc_gene_exon_map(vu.get_local_path('refGene.hg19.gz'))
     vu.write_json_gene_map(out_dir+'/meta/gene_map.json',gene_map)
     print('completed building a python serialized pickle and a json gene map')
 gene_map = vu.read_json_gene_map(out_dir+'/meta/gene_map.json')
@@ -270,7 +270,7 @@ gene_map = vu.read_json_gene_map(out_dir+'/meta/gene_map.json')
 onco_gl  = vu.read_gene_list(vu.get_local_path('onco_bushman_gene_list.txt'))
 mmej_gl  = vu.read_gene_list(vu.get_local_path('mmej_sharma_gene_list.txt'))
 nhej_gl  = vu.read_gene_list(vu.get_local_path('nhej_davis_gene_list.txt'))
-apot_gl  = vu.read_gene_list(vu.get_local_path('apatosis_thermofisher_gene_list.txt'))
+apot_gl  = vu.read_gene_list(vu.get_local_path('apotosis_thermofisher_gene_list.txt'))
 mitcp_gl = vu.read_gene_list(vu.get_local_path('mitcp_giam_gene_list.txt'))
 g1kp3_gl = vu.read_gene_list(vu.get_local_path('g1kp3_filtered_gene_list.txt'))
 

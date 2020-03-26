@@ -112,8 +112,8 @@ def read_json_mut_map(json_path):
                     mut_map[int(l)][str(t)][str(e)] = [str(i) if type(i) is str else i for i in raw_map[l][t][e]]
     return mut_map
 
-def read_json_anueuploidy(json_path):
-    raw,anueuploidy = {},{}
+def read_json_aneuploidy(json_path):
+    raw,aneuploidy = {},{}
     if json_path.endswith('.gz'):
         with gzip.GzipFile(json_path,'rb') as f:
             raw = json.load(f)
@@ -121,20 +121,26 @@ def read_json_anueuploidy(json_path):
         with open(json_path,'r') as f:
             raw = json.load(f)
     for k in raw:
-        anueuploidy[str(k)] = {}
-        for c in raw[k]: anueuploidy[str(k)][int(c)] = raw[k][c]
-    return anueuploidy
+        aneuploidy[str(k)] = {'dist':{},'n':0}
+        aneuploidy[str(k)]['n'] = raw[k]['n']
+        for c in raw[k]['dist']:
+            aneuploidy[str(k)]['dist'][int(c)] = raw[k]['dist'][c]
+    return aneuploidy
 
 #UCSC refGene table file, merge delta will merge overlaping cds regions by union
 #obtained by direct mysql query:
-#mysql --user=genome -N --host=genome-mysql.cse.ucsc.edu -A -D hg19 -e "select * from refGene" | gzip > refGene.txt.gz
-def build_ucsc_gene_exon_map(refGene,swap=True,tx=False):
+#mysql --user=genome -N --host=genome-mysql.cse.ucsc.edu -A -D hg19 -e "select * from refGene" | gzip > refGene.hg19.gz
+def build_ucsc_gene_exon_map(refGene,swap=False,tx=False):
     G,E,C,W,raw = {},{},{},{},[]
     fields = {'bin':0,'name':1,'chrom':2,'strand':3,'txStart':4,'txEnd':5,'cdsStart':6,
               'cdsEnd':7,'exonCount':8,'exonStarts':9,'exonEnds':10,'name2':12}
     if refGene.endswith('.gz'):
-        with gzip.GzipFile(refGene,'rb') as f:
-            raw = f.readlines()
+        if sys.version_info.major<3:
+            with gzip.GzipFile(refGene,'rb') as f:
+                raw = f.readlines()
+        else:
+            with gzip.GzipFile(refGene,'rb') as f:
+                raw = [line.decode('utf_8').replace('\n','') for line in f.readlines()]
     else:
         with open(refGene,'r') as f:
             raw = f.readlines()
@@ -527,6 +533,21 @@ def bed_to_wcu(path,delim='\t',w=0.0,label='bed'):
         else:      g[k]  = [[i,j,w,{label:set(['%s_%s'%(label,y)])}]]
         y += 1
     return g
+
+def json_mask_to_wcu(path,w=0.0,label='json'):
+    mask = {}
+    with open(path,'r') as f:
+        mask = json.load(f)
+    g,y = {},1
+    for k in mask:
+        for row in mask[k]:
+            if k in g: g[k] += [[row[0],row[1],w,{label:set(['%s_%s'%(label,y)])}]]
+            else:      g[k]  = [[row[0],row[1],w,{label:set(['%s_%s'%(label,y)])}]]
+            y += 1
+    return g
+
+
+
 
 #chrom\tstart\tend\tp-value
 #dump the wcu used for germline and somatic
@@ -1240,7 +1261,7 @@ def gen_mut_pos_flanking(mut_pos,mut_l,l_prob=0.25,r_prob=0.25,size_dist='unifor
     else:
         return []
 
-def adjust_anueuploidy_effect(aneuploidy,ploidy,loss,loss_types=['DEL','INS','INV','TRA'],
+def adjust_aneuploidy_effect(aneuploidy,ploidy,loss,loss_types=['DEL','INS','INV','TRA'],
                              driver='mitcp',dist='uniform'):
     if dist=='uniform':
         hits,total = {},{'effected':0.0,driver:0.0}
@@ -1256,16 +1277,16 @@ def adjust_anueuploidy_effect(aneuploidy,ploidy,loss,loss_types=['DEL','INS','IN
             total[driver]     += hits[k][driver]
         for k in aneuploidy:
             if k in ploidy:
-                q   = aneuploidy[k][ploidy[k]]
-                a_s = sorted(set(aneuploidy[k].keys()).difference(set([ploidy[k]])))
+                q   = aneuploidy[k]['dist'][ploidy[k]]
+                a_s = sorted(set(aneuploidy[k]['dist'].keys()).difference(set([ploidy[k]])))
                 if len(a_s)>0 and total[driver]>0:
-                    p   = sum([aneuploidy[k][a] for a in a_s])
+                    p   = sum([aneuploidy[k]['dist'][a] for a in a_s])
                     d   = min(1.0,pow(total['effected']/total[driver],0.5)*(1.0/(1.0*len(a_s))))
-                    for a in a_s: aneuploidy[k][a] += d
-                    aneuploidy[k][ploidy[k]]  = max(0.0,aneuploidy[k][ploidy[k]]-d*len(a_s))
-                    x = 1.0*sum([aneuploidy[k][i] for i in aneuploidy[k]])
+                    for a in a_s: aneuploidy[k]['dist'][a] += d
+                    aneuploidy[k]['dist'][ploidy[k]]  = max(0.0,aneuploidy[k]['dist'][ploidy[k]]-d*len(a_s))
+                    x = 1.0*sum([aneuploidy[k]['dist'][i] for i in aneuploidy[k]['dist']])
                     if x <= 0.0: x = 1.0
-                    aneuploidy[k] = {i:aneuploidy[k][i]/x for i in aneuploidy[k]}
+                    aneuploidy[k]['dist'] = {i:aneuploidy[k]['dist'][i]/x for i in aneuploidy[k]['dist']}
     return aneuploidy
 
 #scane for
@@ -1276,13 +1297,13 @@ def adjust_ins_effect(vca,driver='nhej'):
     return True
 
 #given a set of sequences and a sequency ploidy prob distribution
-def gen_anueuploidy(seqs,ploidy,CT,anueuploidy): #aneuploidy: {k:{0:0.05,1:0.05,2:0.8,3:0.05,4:0.025,5:0.025}}
+def gen_aneuploidy(seqs,ploidy,CT,aneuploidy): #aneuploidy: {k:{0:0.05,1:0.05,2:0.8,3:0.05,4:0.025,5:0.025}}
     A,clones = {},sorted(list(CT.freq.keys()),key=lambda x: int(x.rsplit('_')[-1]))
     for k in seqs:
-        if k in anueuploidy:
+        if k in aneuploidy:
             A[k] = []
-            a = sorted(list(anueuploidy[k].keys()))
-            p = [anueuploidy[k][s] for s in a]
+            a = sorted(list(aneuploidy[k]['dist'].keys()))
+            p = [aneuploidy[k]['dist'][s] for s in a]
             x = np.random.choice(a=a,p=p,size=1,replace=False)[0]
             start_clone = np.random.choice(a=clones)  #pick at random
             print('start clone %s'%start_clone)

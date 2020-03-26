@@ -10,7 +10,7 @@ import sys
 import itertools as it
 import numpy as np
 import pysam
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 #uses the boundry in A to rescale the values in R
 #destructively edits values in R as a result
 @cython.boundscheck(False)
