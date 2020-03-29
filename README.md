@@ -6,35 +6,35 @@ Copyright (C) 2020 Timothy Becker
 
 
 ## Requirements
-python 2.7.11+, cython 0.29+, pysam 0.15+, numpy 1.18+ or<br>
-python 3.6.8+, cython 0.29+, pysam 0.15+, numpy 1.18+
-
+<b>(python 3.6+ is now the prefered platform as of release 0.1.2)</b><br>
+python 3.6.8+, cython 0.29+, pysam 0.15+, numpy 1.18+ or<br>
+python 2.7.11+, cython 0.29+, pysam 0.15+, numpy 1.18+
 ## PIP Installation
 ```bash
-pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.1/somacx-0.1.1.tar.gz
+python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.2/somacx-0.1.2.tar.gz
 ```
 
 ## Docker Installation
-Our repo has a Dockerfile that will build somacx for you or you can easily grab a pre-built image for testing or cloud use:
+This repo has a Dockerfile that will build somacx for you or you can easily grab a pre-built image for testing or cloud use:
 ```bash
 docker pull timothyjamesbecker/somacx
 ```
 
 ## Basic Usage
 ```bash
-generator.py -r ref_fasta -j DEFAULT -c 11,22,X -C 11,22,X -o out_dir --cov 2
+python3 generator.py -r ref_fasta -j hg38 -C 11,22,X -o out_dir --model 0.25,0.75 --cov 2,6
 ```
-<b>-r</b> the reference fasta file such as hg19, Hg38, human_g1k_v37decoy, etc<br>
+<b>-r</b> the reference fasta file such as GRCh38/Hg38, hg19/human_g1k_v37decoy<br>
 
 <b>-j</b> the full JSON control file which includes SV type and sizes rates (including separate linked versus unlinked SNV/MNVs), A gene map such as refGene.txt.gz, encoded weighted gene list or mask files which we absract to the WCU data structure that governs the gain and loss probabilities of genomic regions and finally an optional user specified clonal tree topology.
-
-<b>-c</b> the chroms from the given reference fasta that should have Variation modeled (default is all)
-
+Use presets values: hg38 for Hg38/GRCh38 coordinates (no alternate contigs) or hv37d for the 1000 Genomes Phase 3 reference fasta used in the FusorSV paper.
+Full json presents can be generated using the included tools.
 <b>-C</b> the chroms from the given reference fasta that will be output (good for testing or producing a small dataset)
-
 <b>-o</b> the output directory where the germline genome file (~2X the size of the reference fasta) as well as the somatic genome file (2/cov) will be stored as well as the matching truth VCF files for each. The somatic VCF file includes the clonal tree topology encoded using the PEDIGREE entries in the header.
 
 #### options
+<b>all options can now be given uniform random ranges (these values will override JSON presets)</b>
+
 <b>--model</b> a parametric control that controls the tree topology 0.0 will simulate Cancer Stem Cell (CSC) and 1.0 will yeild a balanced subclonal topology
 
 <b>--branch</b> the chance of each node to branch every cycle
@@ -43,9 +43,12 @@ generator.py -r ref_fasta -j DEFAULT -c 11,22,X -C 11,22,X -o out_dir --cov 2
 
 <b>--cov</b> the desired sequencing coverage so that the user can control the approximate noise level threshold for having alleles of the lowest frequency present
 
-## Advanced Usage
+## Web Browser JSON Editor
+``Visual web broswer JSON editor coming soon``
+
+## Advanced JSON Usage
 ``JSON file format API coming soon...``
 
 ## Python API
-``gene_effects, read_utils, variant_utils and sim python modules offer much greater flexibility in simulating beyond somatic mammalian genomes
+``gene_effects, read_utils, variant_utils and sim python modules offer much greater flexibility in simulating mammalian genomes
 ``

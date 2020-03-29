@@ -912,9 +912,9 @@ def get_ratios(S):
 
 def get_mean_size(pos):
     if len(pos)>0:
-        return np.mean([x[1]-x[0] for x in pos])
+        return int(round(np.mean([x[1]-x[0] for x in pos]),0))
     else:
-        return 0.0
+        return 0
 
 def gen_random_seqs(seqs={'chr1':1E5},alphabet=['A','C','G','T'],
                    prob=[0.25,0.25,0.25,0.25],method='slow'):
@@ -1167,7 +1167,7 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
                 else:
                     C[('germ',)]  = [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
         for k in C: Y[k] = sorted(C[k],key=lambda x: x[0]) #append into Y and scan
-        print(Y.keys())
+        print(list(Y.keys()))
     # [2] merge and cleaning step algo--------------------------------------------------------------------------
     G = weight_graph(Y)
     P = scan_graph(G,scale=False)
@@ -2150,8 +2150,8 @@ def update_vca_pos(vca_a,vca_b,g=0,index=0):
     for i in range(len(vca_b)):
         sv_type, sv_len = get_info_type(vca_b[i].info), get_info_len(vca_b[i].info)
         c1 = [vca_b[i].pos,get_info_end(vca_b[i].info)]
-        if get_genotype(vca_b[i].frmat, index)[g] == 1:              # allele is present
-            if sv_type == 'INS':                          # add to pos_list where needed
+        if get_genotype(vca_b[i].frmat,index)[g] == 1:              # allele is present
+            if   sv_type == 'INS':                          # add to pos_list where needed
                 for j in range(len(vca)):  # ins to left will update pos_list to right
                     if vca[j].pos > c1[0]:
                         vca[j].pos += sv_len

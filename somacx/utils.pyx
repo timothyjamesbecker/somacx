@@ -212,8 +212,25 @@ def sample_fastq(str fastq_in_path, str fastq_out_path, double p, bint paired=Fa
 @cython.nonecheck(False)
 @cython.wraparound(False)
 def get_reverse_complement(str seq):
-    cdef dict m = {'A':'T','a':'t','T':'A','t':'a','C':'G','c':'g','G':'C','g':'c','N':'N'}
+    cdef dict m = {'A':'T','a':'t','T':'A','t':'a','C':'G','c':'g','G':'C','g':'c',
+                   'u':'A','U':'A','m':'T','M':'T','r':'C','R':'C','w':'G','W':'G',
+                   's':'A','S':'A','y':'G','Y':'G','k':'C','K':'C','v':'T','V':'T',
+                   'h':'G','H':'G','d':'C','D':'C','b':'A','B':'A','x':'N','X':'N',
+                   'n':'N','N':'N'}
     return ''.join([m[k] for k in seq[::-1]])
+
+    # M   A or C
+    # R   A or G
+    # W   A or T
+    # S   C or G
+    # Y   C or T
+    # K   G or T
+    # V   A or C or G
+    # H   A or C or T
+    # D   A or G or T
+    # B   C or G or T
+    # X   G or A or T or C
+    # N   G or A or T or C
 
 @cython.boundscheck(False)
 @cython.nonecheck(False)

@@ -271,8 +271,14 @@ def spool_fasta_clones(som_fa_map,chrom,ploidy,vca,
                         mut = vu.apply_var_calls(mut,vca,g=p-1,index=i)
                         utils.write_fasta({chrom+'.%s.%s'%(p,clone_id):mut},fasta_spool,index=faidx,gz=gz)
                     except Exception as E:
-                        print(E.message)
                         print('fasta_spool=%s chrom=%s p=%s i=%s clone=%s,complex=%s'%(fasta_spool,chrom,p,i,clone_id,complex))
+                        pad = ':'.join(['-' for i in range(20)])
+                        print(pad+'@@fasta spool error@@'.upper()+pad)
+                        dump = {'som_fa_map':som_fa_map,'fasta_spool':fasta_spool,
+                                'chrom':chrom+'.%s.%s'%(p,clone_id),'mut':mut,'vca':vca,
+                                'g':p-1,'index':i,'ploidy':ploidy,'complex':complex,'faidx':faidx,'gz':gz}
+                        ru.dump_state(dump,'spool_fasta_clones','/'.join(fasta_spool.rsplit('/')[:-1])+'/')
+                        print(str(E))
                         raise AttributeError
                 else: #have to assume a germline inputs to split out
                     mut = copy.deepcopy(full_ref)
@@ -290,8 +296,14 @@ def spool_fasta_clones(som_fa_map,chrom,ploidy,vca,
                         mut = vu.apply_var_calls(mut,vu.update_vca_pos(vca,complex,g=p-1,index=i),g=p-1,index=i)
                         utils.write_fasta({chrom+'.%s.%s'%(p,clone_id):mut},fasta_spool,index=faidx,gz=gz)
                     except Exception as E:
-                        print(E.message)
                         print('fasta_spool=%s chrom=%s p=%s i=%s clone=%s,complex=%s'%(fasta_spool,chrom,p,i,clone_id,complex))
+                        pad = ':'.join(['-' for i in range(20)])
+                        print(pad+'@@fasta spool error@@'.upper()+pad)
+                        dump = {'som_fa_map':som_fa_map,'fasta_spool':fasta_spool,
+                                'chrom':chrom+'.%s.%s'%(p,clone_id),'mut':mut,'vca':vca,
+                                'g':p-1,'index':i,'ploidy':ploidy,'complex':complex,'faidx':faidx,'gz':gz}
+                        ru.dump_state(dump,'spool_fasta_clones','/'.join(fasta_spool.rsplit('/')[:-1])+'/')
+                        print(str(E))
                         raise AttributeError
                 else: #have to assume a germline inputs to split out
                     mut = copy.deepcopy(full_ref)
@@ -559,7 +571,8 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
         G[k] = {}
         for t in M[k]:
             ploidy = 2
-            if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'): ploidy = 1
+            if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'):             ploidy = 1
+            if 'chrY' in ks and 'chrX' in ks and (k == 'chrY' or k == 'chrX'): ploidy = 1
             G[k][t] = vu.gen_genotypes(ploidy, M[k][t], hetro=mut_p[2][t]['h'])
     print('generating TRA mapping from available seqs\n')
     TK = {}
@@ -572,7 +585,7 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
         vcam[1][k],vcam[2][k],vcam[3][k],vca = [],[],[],[]
 
         ploidy = 2
-        if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'):ploidy = 1
+        if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'):             ploidy = 1
         if 'chrY' in ks and 'chrX' in ks and (k == 'chrY' or k == 'chrX'): ploidy = 1
         print('processing seq=%s with ploidy=%s----------------' % (k, ploidy))
 
@@ -595,6 +608,7 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
             mut1 = copy.deepcopy(seqs[k])
             if ploidy > 1:
                 mut2 = copy.deepcopy(seqs[k])
+            print('L1: WARNING! applied 0 SNV, MNV to seq %s'%k)
         # now set total SVs and partition into DEL,DUP,INV,TRA
         ins_vca,del_vca,dup_vca,tra_vca,inv_vca = [],[],[],[],[]
         inside_del_vca,inside_ins_vca,comp_del_vca,comp_ins_vca,flanking_dup_vca = [],[],[],[],[]
@@ -728,6 +742,8 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
             mut1 = vu.apply_var_calls(mut1,vca,g=0)  # all ref_chroms get some SNV
             if ploidy > 1:
                 mut2 = vu.apply_var_calls(mut2,vca,g=1)  # all ref_chroms get some SNV
+        else:
+            print('L3: WARNING! applied 0 SNVs to seq %s'%k)
         # test a modification that does chr1_DNA1, chr1_DNA2, ect
         print('writing the results to a fasta')
         if ploidy > 1:
@@ -771,8 +787,8 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                        clone_tree_params['model'],
                        clone_tree_params['branch'],
                        clone_tree_params['decay'],
-                       clone_tree_params['cov']/2,
-                       clone_tree_params['cov']/2,
+                       int(clone_tree_params['cov']/2),
+                       int(clone_tree_params['cov']/2),
                        gz=gz)
     print('%s clones are active'%len(CT.nodes))
     ks = list(set(list(vcam[1].keys())+list(vcam[2].keys())+list(vcam[3].keys())))
@@ -824,7 +840,7 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
     old_pos_map,over = {},{}
 
     # correct areas of gain for onco genes------------------------------------
-    print('correcting SV events to boundaries for seq %s' % k)
+    print('correcting SV gain events to boundaries for seq %s' % k)
     extend_wcu = {k:gain_wcu[k]['onco'] if 'onco' in gain_wcu[k] else [] for k in gain_wcu}
     M = vu.extend_class_mut_pos(M,'DUP',copy.deepcopy(extend_wcu))
     loss,gain = wcu_enrichment(M,loss_wcu,gain_wcu,gene_map)
@@ -836,7 +852,8 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
         G[k] = {}
         for t in M[k]:
             ploidy = 2
-            if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'): ploidy = 1
+            if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'):             ploidy = 1
+            if 'chrY' in ks and 'chrX' in ks and (k == 'chrY' or k == 'chrX'): ploidy = 1
             G[k][t] = vu.gen_genotypes(ploidy, M[k][t], hetro=mut_p[2][t]['h'])
     print('generating TRA mapping from available seqs\n')
     TK = {}
@@ -862,8 +879,9 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
             if not k in s_vcam[l]: s_vcam[l][k] = []
         seqs = {k: ru.read_fasta_chrom(ref_path,k)}
         ploidy = 2
-        if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'): ploidy = 1
-        print('processing seq=%s with ploidy=%s----------------' % (k, ploidy))
+        if 'Y' in ks and 'X' in ks and (k == 'Y' or k == 'X'):             ploidy = 1
+        if 'chrY' in ks and 'chrX' in ks and (k == 'chrY' or k == 'chrX'): ploidy = 1
+        print('processing seq=%s with ploidy=%s----------------'%(k,ploidy))
         # start with a some SNV before SV ----------------------------------------------
         pos,w   = vu.wcu_to_pos_w(loss_wcu[k],len(seqs[k]))
         class_p = {'SUB':[pos,w]}
@@ -995,9 +1013,9 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                                                     allele_map=ins_al_map,ref_path=ref_path)
                     comp_ins_vca = vu.gen_var_calls(seqs,k,'INS',comp_ins_pos,inv_ins_gen,
                                                     allele_map=ins_al_map,ref_path=ref_path)
-                    print('L2:Inner:appplied %s small inner INS to INV on seq %s'%(len(ins_vca),k))
+                    print('L2:Inner:appplied %s small inner INS to INV on seq %s'%(len(inv_ins_vca),k))
                 #now write out the complex INV inner events
-                vca          = sorted(del_vca+ins_vca,key=lambda x:(x.chrom.zfill(100),x.pos))
+                vca          = sorted(inv_del_vca+inv_ins_vca,key=lambda x:(x.chrom.zfill(100),x.pos))
                 r_vca        = sorted(comp_del_vca+comp_ins_vca,key=lambda x:(x.chrom.zfill(100),x.pos))
                 s_vcam[2][k] = sorted(s_vcam[2][k]+r_vca,key=lambda x: (x.chrom.zfill(100),x.pos))
 
@@ -1006,6 +1024,7 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                 #s_vcam[2][k] = vu.adjust_ins_effect()
 
                 spool_fasta_clones(som_fa_map,k,ploidy,vca,seqs[k],complex=s_vcam[2][k],gz=gz)
+
         # second round of SNV that are post SV
         pos,w = vu.wcu_to_pos_w(loss_wcu[k], len(seqs[k]))
         class_p = {'SUB': [pos,w]}
