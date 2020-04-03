@@ -97,59 +97,60 @@ if __name__ == '__main__':
                 sm = f[0].rsplit('/')[-1].rsplit('.')[0].rsplit('_')[0] #prefixes match so take pair1
                 rg = r'"@RG\tID:%s'%sm+"_lane%s"%x+r"\tLB:%s"%sm+r"_lane%s"%x+r"\tPL:"+\
                      platform.upper()+r"\tPU:%s"%sm+r"_lane%s"%x+r'\tSM:%s"'%sm
-                if not os.path.exists('%s/%s.lane%s.sorted.bam'%(out_path,sm,x)):
-                    if args.fast: #will not use l -9 compression on each lane to beging
-                        # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                        command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
-                                   f[0],f[1],'|',tools+'samtools sort','-','-@ %s'%threads,
-                                   '-o','%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
-                    else:
-                        # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                        command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
-                                   f[0],f[1],'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
+                if not os.path.exists('%s/%s.final.bam'%(out_path,sm)):
+                    if not os.path.exists('%s/%s.lane%s.sorted.bam'%(out_path,sm,x)):
+                        if args.fast: #will not use l -9 compression on each lane to beging
+                            # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
+                            command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                                       f[0],f[1],'|',tools+'samtools sort','-','-@ %s'%threads,
+                                       '-o','%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
+                        else:
+                            # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
+                            command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                                       f[0],f[1],'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
 
-                        # $BIO/samtools sort -l 9 -@ $TH -T _sort -o $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane1_N.bam
-                        command = [tools+'samtools sort','-l 9','-@ %s'%threads, '-T %s'%out_path+'/_sort','-o',
-                                   '%s/%s.lane%s.sorted.bam'%(out_path,sm,x),'%s/%s.lane%s.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
+                            # $BIO/samtools sort -l 9 -@ $TH -T _sort -o $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane1_N.bam
+                            command = [tools+'samtools sort','-l 9','-@ %s'%threads, '-T %s'%out_path+'/_sort','-o',
+                                       '%s/%s.lane%s.sorted.bam'%(out_path,sm,x),'%s/%s.lane%s.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
 
-                        #rm $DIR/$SM.lane1_N.bam
-                        command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
-                B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
-                x += 1
+                            #rm $DIR/$SM.lane1_N.bam
+                            command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
+                    B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
+                    x += 1
+            if not os.path.exists('%s/%s.final.bam'%(out_path,sm)):
+                #[3] merge all sorted bams, delete each bam
+                # $BIO/samtools merge -l 9 -@ $TH -O BAM $DIR/$SM.N.merged.bam $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
+                if not os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
+                    command = [tools+'samtools merge','-l 9','-@ %s'%threads, '-O  BAM',
+                               '%s/%s.merged.bam'%(out_path,sm)]+sorted(B)
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
 
-            #[3] merge all sorted bams, delete each bam
-            # $BIO/samtools merge -l 9 -@ $TH -O BAM $DIR/$SM.N.merged.bam $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
-            if not os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
-                command = [tools+'samtools merge','-l 9','-@ %s'%threads, '-O  BAM',
-                           '%s/%s.merged.bam'%(out_path,sm)]+sorted(B)
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
+                    #rm $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
+                    command = ['rm']+sorted(B)+['|| true']
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
 
-                #rm $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
-                command = ['rm']+sorted(B)+['|| true']
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
-
-            #[4] markdups on merged-sorted bam, delete merged bam
-            #$BIO/sambamba markdup -l 9 -t $TH --tmpdir=_sort --sort-buffer-size=8096 --overflow-list-size=2000000 $DIR/$SM.N.merged.bam $DIR/$SM.N.final.bam
-            if not os.path.exists('%s/%s.final.bam'%(out_path,sm)) and os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
-                command = [tools+'sambamba markdup','-l 9','-t %s'%threads,'--tmpdir=%s'%out_path+'/_sort',
-                           '--sort-buffer-size=8096 --overflow-list-size=2000000',
-                           '%s/%s.merged.bam'%(out_path,sm),'%s/%s.final.bam'%(out_path,sm)]
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
-                command = ['rm','%s/%s.merged.bam'%(out_path,sm)]
-                if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort']
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
+                #[4] markdups on merged-sorted bam, delete merged bam
+                #$BIO/sambamba markdup -l 9 -t $TH --tmpdir=_sort --sort-buffer-size=8096 --overflow-list-size=2000000 $DIR/$SM.N.merged.bam $DIR/$SM.N.final.bam
+                if not os.path.exists('%s/%s.final.bam'%(out_path,sm)) and os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
+                    command = [tools+'sambamba markdup','-l 9','-t %s'%threads,'--tmpdir=%s'%out_path+'/_sort',
+                               '--sort-buffer-size=8096 --overflow-list-size=2000000',
+                               '%s/%s.merged.bam'%(out_path,sm),'%s/%s.final.bam'%(out_path,sm)]
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
+                    command = ['rm','%s/%s.merged.bam'%(out_path,sm)]
+                    if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort']
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
         if platform=='pacbio':
             print('pacbio platform selected...')
             #[1] get the single fastq reads
@@ -169,57 +170,59 @@ if __name__ == '__main__':
                 sm = f.rsplit('/')[-1].rsplit('.')[0].rsplit('_')[0] #prefixes match so take pair1
                 rg = r'"@RG\tID:%s'%sm+"_lane%s"%x+r"\tLB:%s"%sm+r"_lane%s"%x+r"\tPL:"+\
                      platform.upper()+r"\tPU:%s"%sm+r"_lane%s"%x+r'\tSM:%s"'%sm
-                if not os.path.exists('%s/%s.lane%s.bam'%(out_path,sm,x)):
-                    if args.fast: #will not use l -9 compression on each lane to beging
-                        # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                        command = [tools+'minimap2','-ax map-pb','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
-                                   f,'|',tools+'samtools sort','-','-@ %s'%threads,
-                                   '-o','%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
-                    else:
-                        # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                        command = [tools+'minimap2','-ax map-pb','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
-                                   f,'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
+                if not os.path.exists('%s/%s.final.bam'%(out_path,sm))
+                    if not os.path.exists('%s/%s.lane%s.bam'%(out_path,sm,x)):
+                        if args.fast: #will not use l -9 compression on each lane to beging
+                            # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
+                            command = [tools+'minimap2','-ax map-pb','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                                       f,'|',tools+'samtools sort','-','-@ %s'%threads,
+                                       '-o','%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
+                        else:
+                            # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
+                            command = [tools+'minimap2','-ax map-pb','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                                       f,'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
 
-                        # $BIO/samtools sort -l 9 -@ $TH -T _sort -o $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane1_N.bam
-                        command = [tools+'samtools sort','-l 9','-@ %s'%threads, '-T %s'%out_path+'/_sort','-o',
-                                   '%s/%s.lane%s.sorted.bam'%(out_path,sm,x),'%s/%s.lane%s.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
+                            # $BIO/samtools sort -l 9 -@ $TH -T _sort -o $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane1_N.bam
+                            command = [tools+'samtools sort','-l 9','-@ %s'%threads, '-T %s'%out_path+'/_sort','-o',
+                                       '%s/%s.lane%s.sorted.bam'%(out_path,sm,x),'%s/%s.lane%s.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
 
-                        #rm $DIR/$SM.lane1_N.bam
-                        command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
-                        try: out = subprocess.check_output(' '.join(command),shell=True)
-                        except Exception as E: print(command,E)
-                B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
-                x += 1
-            #[3] merge all sorted bams, delete each bam
-            # $BIO/samtools merge -l 9 -@ $TH -O BAM $DIR/$SM.N.merged.bam $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
-            if not os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
-                command = [tools+'samtools merge','-l 9','-@ %s'%threads, '-O BAM',
-                           '%s/%s.merged.bam'%(out_path,sm)]+sorted(B)
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
+                            #rm $DIR/$SM.lane1_N.bam
+                            command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
+                            try: out = subprocess.check_output(' '.join(command),shell=True)
+                            except Exception as E: print(command,E)
+                    B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
+                    x += 1
+            if not os.path.exists('%s/%s.final.bam'%(out_path,sm))
+                #[3] merge all sorted bams, delete each bam
+                # $BIO/samtools merge -l 9 -@ $TH -O BAM $DIR/$SM.N.merged.bam $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
+                if not os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
+                    command = [tools+'samtools merge','-l 9','-@ %s'%threads, '-O BAM',
+                               '%s/%s.merged.bam'%(out_path,sm)]+sorted(B)
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
 
-                #rm $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
-                command = ['rm']+sorted(B)
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
+                    #rm $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
+                    command = ['rm']+sorted(B)
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
 
-            #[4] markdups on merged-sorted bam, delete merged bam
-            #$BIO/sambamba markdup -l 9 -t $TH --tmpdir=_sort --sort-buffer-size=8096 --overflow-list-size=2000000 $DIR/$SM.N.merged.bam $DIR/$SM.N.final.bam
-            if not os.path.exists('%s/%s.final.bam'%(out_path,sm)) and os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
-                command = [tools+'sambamba markdup','-l 9','-t %s'%threads,'--tmpdir=%s'%out_path+'/_sort',
-                           '--sort-buffer-size=8096 --overflow-list-size=2000000',
-                           '%s/%s.merged.bam'%(out_path,sm),'%s/%s.final.bam'%(out_path,sm)]
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
-                command = ['rm -rf','%s/%s.merged.bam'%(out_path,sm)]
-                if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort', '|| true']
-                try: out = subprocess.check_output(' '.join(command),shell=True)
-                except Exception as E: print(command,E)
+                #[4] markdups on merged-sorted bam, delete merged bam
+                #$BIO/sambamba markdup -l 9 -t $TH --tmpdir=_sort --sort-buffer-size=8096 --overflow-list-size=2000000 $DIR/$SM.N.merged.bam $DIR/$SM.N.final.bam
+                if not os.path.exists('%s/%s.final.bam'%(out_path,sm)) and os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
+                    command = [tools+'sambamba markdup','-l 9','-t %s'%threads,'--tmpdir=%s'%out_path+'/_sort',
+                               '--sort-buffer-size=8096 --overflow-list-size=2000000',
+                               '%s/%s.merged.bam'%(out_path,sm),'%s/%s.final.bam'%(out_path,sm)]
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
+                    command = ['rm -rf','%s/%s.merged.bam'%(out_path,sm)]
+                    if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort', '|| true']
+                    try: out = subprocess.check_output(' '.join(command),shell=True)
+                    except Exception as E: print(command,E)
         s_stop = time.time()
         print('finished processing sample=%s in %s min'%(sm,int(round((s_stop-s_start)/60.0))))

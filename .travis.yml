@@ -8,6 +8,6 @@ install:
   - python3 -m pip install cython
   - python3 -m pip install numpy
   - python3 -m pip install pysam
-  - python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.1/somacx-0.1.1.tar.gz
+  - python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.2/somacx-0.1.2.tar.gz
 script:
   - generator.py -h
