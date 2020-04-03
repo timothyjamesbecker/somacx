@@ -170,7 +170,7 @@ if __name__ == '__main__':
                 sm = f.rsplit('/')[-1].rsplit('.')[0].rsplit('_')[0] #prefixes match so take pair1
                 rg = r'"@RG\tID:%s'%sm+"_lane%s"%x+r"\tLB:%s"%sm+r"_lane%s"%x+r"\tPL:"+\
                      platform.upper()+r"\tPU:%s"%sm+r"_lane%s"%x+r'\tSM:%s"'%sm
-                if not os.path.exists('%s/%s.final.bam'%(out_path,sm))
+                if not os.path.exists('%s/%s.final.bam'%(out_path,sm)):
                     if not os.path.exists('%s/%s.lane%s.bam'%(out_path,sm,x)):
                         if args.fast: #will not use l -9 compression on each lane to beging
                             # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
@@ -198,7 +198,7 @@ if __name__ == '__main__':
                             except Exception as E: print(command,E)
                     B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
                     x += 1
-            if not os.path.exists('%s/%s.final.bam'%(out_path,sm))
+            if not os.path.exists('%s/%s.final.bam'%(out_path,sm)):
                 #[3] merge all sorted bams, delete each bam
                 # $BIO/samtools merge -l 9 -@ $TH -O BAM $DIR/$SM.N.merged.bam $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
                 if not os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
