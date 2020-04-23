@@ -1281,7 +1281,7 @@ def adjust_aneuploidy_effect(aneuploidy,ploidy,loss,loss_types=['DEL','INS','INV
                 a_s = sorted(set(aneuploidy[k]['dist'].keys()).difference(set([ploidy[k]])))
                 if len(a_s)>0 and total[driver]>0:
                     p   = sum([aneuploidy[k]['dist'][a] for a in a_s])
-                    d   = min(1.0,pow(total['effected']/total[driver],0.5)*(1.0/(1.0*len(a_s))))
+                    d   = min(0.5,pow(total['effected']/total[driver],2.0)*(1.0/(1.0*len(a_s))))
                     for a in a_s: aneuploidy[k]['dist'][a] += d
                     aneuploidy[k]['dist'][ploidy[k]]  = max(0.0,aneuploidy[k]['dist'][ploidy[k]]-d*len(a_s))
                     x = 1.0*sum([aneuploidy[k]['dist'][i] for i in aneuploidy[k]['dist']])
@@ -2261,7 +2261,7 @@ def merge_filter_sort_vcam(vcam,aneuploidy,small_cut=50,large_cut=int(260E6)):
     final,dki = [],{}
     for k in vcam:
         if k in aneuploidy:
-            print('there is chrom %s aneuploidy'%k)
+            if len(aneuploidy[k]): print('there is chrom %s aneuploidy'%k)
             for j in range(len(aneuploidy[k])):
                 an_svtype = get_info_type(aneuploidy[k][j].info)
                 if an_svtype=='DEL':

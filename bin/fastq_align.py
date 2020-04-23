@@ -120,9 +120,10 @@ if __name__ == '__main__':
                             except Exception as E: print(command,E)
 
                             #rm $DIR/$SM.lane1_N.bam
-                            command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
-                            try: out = subprocess.check_output(' '.join(command),shell=True)
-                            except Exception as E: print(command,E)
+                            if os.path.exists('%s/%s.lane%s.sorted.bam'%(out_path,sm,x)):
+                                command = ['rm','%s/%s.lane%s.bam'%(out_path,sm,x)]
+                                try: out = subprocess.check_output(' '.join(command),shell=True)
+                                except Exception as E: print(command,E)
                     B += ['%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
                     x += 1
             if not os.path.exists('%s/%s.final.bam'%(out_path,sm)):
@@ -135,9 +136,10 @@ if __name__ == '__main__':
                     except Exception as E: print(command,E)
 
                     #rm $DIR/$SM.lane1_N.sorted.bam $DIR/$SM.lane2_N.sorted.bam
-                    command = ['rm']+sorted(B)+['|| true']
-                    try: out = subprocess.check_output(' '.join(command),shell=True)
-                    except Exception as E: print(command,E)
+                    if os.path.exists('%s/%s.merged.bam'%(out_path,sm)):
+                        command = ['rm']+sorted(B)+['|| true']
+                        try: out = subprocess.check_output(' '.join(command),shell=True)
+                        except Exception as E: print(command,E)
 
                 #[4] markdups on merged-sorted bam, delete merged bam
                 #$BIO/sambamba markdup -l 9 -t $TH --tmpdir=_sort --sort-buffer-size=8096 --overflow-list-size=2000000 $DIR/$SM.N.merged.bam $DIR/$SM.N.final.bam
@@ -147,10 +149,12 @@ if __name__ == '__main__':
                                '%s/%s.merged.bam'%(out_path,sm),'%s/%s.final.bam'%(out_path,sm)]
                     try: out = subprocess.check_output(' '.join(command),shell=True)
                     except Exception as E: print(command,E)
-                    command = ['rm','%s/%s.merged.bam'%(out_path,sm)]
-                    if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort']
-                    try: out = subprocess.check_output(' '.join(command),shell=True)
-                    except Exception as E: print(command,E)
+
+                    if os.path.exists('%s/%s.final.bam'%(out_path,sm)):
+                        command = ['rm','%s/%s.merged.bam'%(out_path,sm)]
+                        if os.path.exists(out_path+'/_sort'): command += [out_path+'/_sort']
+                        try: out = subprocess.check_output(' '.join(command),shell=True)
+                        except Exception as E: print(command,E)
         if platform=='pacbio':
             print('pacbio platform selected...')
             #[1] get the single fastq reads
