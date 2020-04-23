@@ -158,12 +158,24 @@ def bed_mask_to_json_mask(bed_path,json_path):
             if data.has_key(row[0]): data[row[0]] += [[int(row[1]),int(row[2])]]
             else:                    data[row[0]]  = [[int(row[1]),int(row[2])]]
     for k in data:
-        data[k] = sorted(data[k], key = lambda x: x[0])
+        data[k] = sorted(data[k],key=lambda x: x[0])
     #no coordinate sort per contig
     with open(json_path,'w') as f:
         json.dump(data,f)
     return True
-    
+
+def json_mask_to_bed_mask(json_path,bed_path,add_chr=False):
+    data,chr = {},''
+    with open(json_path,'r') as f:
+        data = json.load(f)
+    if add_chr: chr = 'chr'
+    s = ''
+    for k in sorted(list(data.keys()),key=lambda x: x.zfill(250)):
+        s += '\n'.join(['\t'.join([chr+k]+[str(y) for y in row]) for row in sorted(data[k],key=lambda x: x[0])])+'\n'
+    with open(bed_path,'w') as f:
+        f.write(s)
+    return True
+
 def get_offsets(chroms,order):
     x,m = 0,{k:0 for k in chroms}
     for k in order:
