@@ -101,14 +101,14 @@ if __name__ == '__main__':
                     if not os.path.exists('%s/%s.lane%s.sorted.bam'%(out_path,sm,x)):
                         if args.fast: #will not use l -9 compression on each lane to beging
                             # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                            command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                            command = [tools+'minimap2','-ax sr','-Y','--eqx','-t %s'%threads,'-R %s'%rg, ref_path,
                                        f[0],f[1],'|',tools+'samtools sort','-','-@ %s'%threads,
                                        '-o','%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
                             try: out = subprocess.check_output(' '.join(command),shell=True)
                             except Exception as E: print(command,E)
                         else:
                             # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                            command = [tools+'minimap2','-ax sr','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                            command = [tools+'minimap2','-ax sr','-Y','--eqx','-t %s'%threads,'-R %s'%rg, ref_path,
                                        f[0],f[1],'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
                             try: out = subprocess.check_output(' '.join(command),shell=True)
                             except Exception as E: print(command,E)
@@ -178,14 +178,14 @@ if __name__ == '__main__':
                     if not os.path.exists('%s/%s.lane%s.bam'%(out_path,sm,x)):
                         if args.fast: #will not use l -9 compression on each lane to beging
                             # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                            command = [tools+'minimap2','-ax map-pb','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                            command = [tools+'minimap2','-ax map-pb','-Y','-L','--eqx','-t %s'%threads,'-R %s'%rg, ref_path,
                                        f,'|',tools+'samtools sort','-','-@ %s'%threads,
                                        '-o','%s/%s.lane%s.sorted.bam'%(out_path,sm,x)]
                             try: out = subprocess.check_output(' '.join(command),shell=True)
                             except Exception as E: print(command,E)
                         else:
                             # $BIO/minimap2 -ax sr -Y -t $TH -R $RG1 $REF $DIR/lane1.1.fq.gz $DIR/lane1.2.fq.gz | $BIO/samtools view - -Shb > $DIR/$SM.lane1_N.bam
-                            command = [tools+'minimap2','-ax map-pb','-Y','-t %s'%threads,'-R %s'%rg, ref_path,
+                            command = [tools+'minimap2','-ax map-pb','-Y','-L','--eqx','-t %s'%threads,'-R %s'%rg, ref_path,
                                        f,'|',tools+'samtools view','-','-Shb','>','%s/%s.lane%s.bam'%(out_path,sm,x)]
                             try: out = subprocess.check_output(' '.join(command),shell=True)
                             except Exception as E: print(command,E)
