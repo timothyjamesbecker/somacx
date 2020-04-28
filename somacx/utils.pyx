@@ -1,16 +1,15 @@
-#Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
+#Timothy James Becker, PhD candidate, UCONN 01/10/2017-04/26/2020
 #cython edit distance algorithms, string processing utils, weighted_random distribution
 #c imports
 cimport cython
 cimport numpy as np
 #regular imports
-import math
 import random
 import sys
 import itertools as it
 import numpy as np
 import pysam
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 #uses the boundry in A to rescale the values in R
 #destructively edits values in R as a result
 @cython.boundscheck(False)
@@ -37,12 +36,13 @@ def rescale_scan(double [:,:] A, double [:] R):
 @cython.nonecheck(False)
 @cython.wraparound(False)
 def weighted_random(long [:,:] pos, double [:] w, long n,
-                    bint normalize=False,bint sort=False): #get a view of numpy w_pos
+                    bint normalize=False,bint sort=False, seed = None): #get a view of numpy w_pos
     cdef int i,j,k
     cdef double a,b
     cdef double [:,:] A = np.zeros((len(pos),4), dtype=np.double)
     cdef np.ndarray[double, ndim=1] R = np.zeros([n,],dtype=np.double)
     a,b,k = 0.0,0.0,len(pos)
+    if seed is not None: np.random.seed(seed)
     if len(pos)==len(w) and k>0 and len(pos[0])>0:
         if normalize:
             a = 0.0 #set weights to sum to 1.0
@@ -71,11 +71,12 @@ def weighted_random(long [:,:] pos, double [:] w, long n,
 @cython.nonecheck(False)
 @cython.wraparound(False)
 def weighted_random_alt(long [:,:] pos, double [:] w, long n,
-                        bint normalize=True, inner_dist='uniform'):
+                        bint normalize=True, inner_dist='uniform', seed=None):
     cdef long i,j
     cdef double a,x
     cdef np.ndarray[long, ndim=1] A = np.zeros((n,),dtype=long)
     cdef np.ndarray[long, ndim=1] R = np.zeros((n,),  dtype=long)
+    if seed is not None: np.random.seed(seed)
     k = len(pos)
     if len(pos)==len(w) and k>0 and len(pos[0])>0:
         if normalize:

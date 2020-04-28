@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
+#Timothy James Becker, PhD candidate, UCONN 01/10/2017-04/25/2020
 #soMaCX: Somatic Complex SV Diploid Genome Generator, produces disjoint SVs on demand and then
 #allows for secondary SV layers to be introduced using several parameters
 #supported types are INS, DEL, SUB, TANDEM DUP, DISPERSED DUP, INV DUP, INV,COMPLEX INV, TRA (chroma->chromB)
@@ -10,6 +10,7 @@
 
 import argparse
 import os
+import copy
 import sys
 import glob
 import gzip
@@ -132,7 +133,7 @@ def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_pat,
             return True
         return False
 
-des = """soMaCX: Generator v0.1.2, 01/01/2017-03/20/2020 Timothy James Becker"""
+des = """soMaCX: Generator v0.1.3, 01/01/2017-04/26/2020 Timothy James Becker"""
 parser = argparse.ArgumentParser(description=des)
 parser.add_argument('-r','--ref_path',type=str,help='reference fasta input file\t[None]')
 parser.add_argument('-o','--out_dir',type=str,help='output directory\t[None]')
@@ -149,6 +150,7 @@ parser.add_argument('--branch',type=str,help='[0.0,1.0] branching factor or chan
 parser.add_argument('--decay',type=str,help='[0.0,1.0] decay factor or chance that a cell node dies each cycle, where 1.0 is certain cell death,csvs will indicate a random range\t[0.001]')
 parser.add_argument('--cov',type=str,help='>2 total coverage/ploidy that will be simulated, used as a lower bound so data is not clipped past noise level,csvs will indicate a random range\t[10]')
 parser.add_argument('--small_cut',type=int,help='filter out variants that are less than this size in bp\t[1]')
+parser.add_argument('--seed',type=int,help='integer for random seed\t[None]')
 parser.add_argument('--verbose',action='store_true',help='output more result mertics to stdout\t[False]')
 args = parser.parse_args()
 
@@ -260,8 +262,10 @@ if args.cov is not None:             cov    = sorted([float(x) for x in args.cov
 else:                                cov    = [15,35]
 if len(cov)>0 and len(cov)<=1:       cov    = cov[0]
 else:                                cov    = np.random.choice(np.arange(cov[0],cov[1],(cov[1]-cov[0])/10.0),1)[0]
-if args.small_cut is not None: small_cut = args.small_cut
-else:                          small_cut = 1
+if args.small_cut is not None: small_cut    = args.small_cut
+else:                          small_cut    = 0
+if args.seed is not None:            seed   = args.seed
+else:                                seed   = None
 #if a user puts in any clone tree params, this will overide the full.json file
 clone_tree_params = None
 if args.model is not None or args.branch is not None or \
@@ -319,7 +323,7 @@ for k in rs:
 if prior_vcf is not None: #via FusorSV_VCF file
     print('loading prior vcf file: %s'%prior_vcf)
     sample = prior_vcf.split('/')[-1].split('_')[0]
-    vcf_vcam = vu.vcf_to_vcam(prior_vcf,ref_path,ks) #replace with VCF SVs
+    vcf_vcam = vu.vcf_to_vcam(prior_vcf,ref_path,ks,seed=seed) #replace with VCF SVs
     if 'Y' not in vcf_vcam and 'Y' in ks: ks.remove('Y') #update ks
     if 'Y' not in vcf_vcam and 'Y' in rs: rs.remove('Y') #update rs
     if 'Y' not in vcf_vcam and 'Y' in S: S.pop('Y')
@@ -328,9 +332,8 @@ if prior_vcf is not None: #via FusorSV_VCF file
     print('variantion is present on: %s'%list(vcf_vcam.keys()))
 
 print('ks = %s rs = %s at germline_genome start'%(ks,rs))
-#not fully expressed, but getting closer to germline goal once transposons are in place
 sample,vcam,g_loss,g_gain,g_rate = sim.germline_genome(ref_path,out_dir,rs,ks,germline_var_map,loss_wcu,gain_wcu,
-                                                       gene_map,gen_method=method,gz=gz,small_cut=small_cut)
+                                                       gene_map,gen_method=method,gz=gz,small_cut=small_cut,seed=seed)
 
 if prior_vcf is not None: #via FusorSV_VCF file
     vcf_sample = prior_vcf.split('/')[-1].split('_')[0]
@@ -338,13 +341,7 @@ if prior_vcf is not None: #via FusorSV_VCF file
     if 2 in vcam: vcam.pop(2)
     vcam[2] = vcf_vcam
     vcam = vu.alter_lvcam_genotypes(vcam,h=0.25) #for now assumes no ploidy 1
-
-    # sample = vcf_sample    #
-    # write_snv_indel = True #
-    # small_cut = 50         #
-    # gz = True              #
     sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,vcf_sample,out_dir,rs,gene_map)
-#need to write function to apply fsvcam to ref_path+out_dir
 
 #default weighted class units for somatic regions that include onco genes and nhej pathways...
 somatic_var_map = vu.read_json_mut_map(out_dir+'/meta/s_var_map.json')
@@ -378,7 +375,7 @@ CT,M,T,s_vcam,s_loss,s_gain,s_rate,s_over = sim.somatic_genomes(ref_path,out_dir
                                                                 clone_tree_path=clone_tree_path,
                                                                 clone_tree_params=clone_tree_params,
                                                                 aneuploidy=aneuploidy,
-                                                                small_cut=small_cut)
+                                                                small_cut=small_cut,seed=seed)
 # print('germline generation enrichment targets:')
 # sim.display_rlg(ks,g_rate,g_loss,g_gain)
 # print('somatic generation enrichment targets:')

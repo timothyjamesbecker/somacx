@@ -5,8 +5,6 @@ import re
 import copy
 import datetime
 import itertools as it
-import utils
-import time
 import gzip
 import json
 import hashlib
@@ -648,7 +646,8 @@ def vcf_chroms(path):
             else:          C[c] += 1
     return C
 
-def alter_lvcam_genotypes(lvcam,h=0.5):
+def alter_lvcam_genotypes(lvcam,h=0.5,seed=None):
+    if seed is not None: np.random.seed(seed)
     gs = [[1,0],[0,1],[1,1]]
     for l in lvcam:
         for k in lvcam[l]:
@@ -671,7 +670,8 @@ def alter_lvcam_genotypes(lvcam,h=0.5):
 #[3] map the types appropriately INS,DEL,DUP=> only tandem, INV=>only simple =>
 #[4] this involves mining the INFO field correctly and reforming it again...
 #[5] sort the vca for each chrom and save back again
-def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50):
+def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50,seed=None):
+    if seed is not None: np.random.seed(seed)
     s,g,l,M = '',[],{},{}
     if vcf_path.endswith('.gz'):
         with gzip.GzipFile(vcf_path,'rb') as f:
@@ -917,7 +917,8 @@ def get_mean_size(pos):
         return 0
 
 def gen_random_seqs(seqs={'chr1':1E5},alphabet=['A','C','G','T'],
-                   prob=[0.25,0.25,0.25,0.25],method='slow'):
+                   prob=[0.25,0.25,0.25,0.25],method='slow',seed=None):
+    if seed is not None: np.random.seed(seed)
     ss = []
     sigma = np.asarray(alphabet,dtype='S1') #do set difference for SNPs
     for k in seqs:
@@ -933,7 +934,8 @@ def gen_random_seqs(seqs={'chr1':1E5},alphabet=['A','C','G','T'],
     return ss[::-1]
 
 #[0] given a type and variant size interval VS --> {INS:1E0}
-def gen_chrom_lens(L,chroms):
+def gen_chrom_lens(L,chroms,seed=None):
+    if seed is not None: np.random.seed(seed)
     c = len(chroms)
     ls = np.random.geometric(0.4,L) #partitioned lens of each chrom that will sum to L
     LS = np.histogram(ls,bins=list(set(ls)))  #bin the geometric dist
@@ -1014,8 +1016,9 @@ def class_hp_to_pos(class_p,cutoff=0.0):
 
     #start with just one level
 
-def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
-                               size_dist='uniform',size_prop=3.0,center=False,cutoff=0.0):
+def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,size_dist='uniform',
+                               size_prop=3.0,center=False,cutoff=0.0,seed=None):
+    if seed is not None: np.random.seed(seed)
     #[1] generate candidates and probabilties distributions to sample from
     A,F,P,R,M,G,m,n = [],{'requested':0.0,'remaining':0.0},{},{},{},[],[],len(ref_seq) #x= total requested
     for t in mut_p[l]: #masked or areas that should not be utilized
@@ -1032,7 +1035,7 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
 
             if t in class_p: #mulitmodal distribution over the class ranges and weights
                 s_class_p = copy.deepcopy(class_p[t])
-                start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r*y)
+                start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r*y,seed=seed)
                 if center:
                     if size_dist == 'triangular':
                         start_pos = [[max(0,i-int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))//2),
@@ -1122,7 +1125,8 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,
 #step instead of looking for collisions which is generally much faster...
 def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
                           size_dist='uniform',size_prop=2.0,
-                          center=False,germ=True):
+                          center=False,germ=True,seed=None,verbose=True):
+    if seed is not None: np.random.seed(seed)
     A,R,Y,M,m,n = {},{},{},{},[],len(ref_seq)  # x= total requested
     for t in mut_p[l]:
         for s in mut_p[l][t]['l:n']: m += [s]
@@ -1135,7 +1139,7 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
             r = int(round(R[(t,s)]*x,0))
             if t in class_p: #mulitmodal distribution over the class ranges and weights
                 s_class_p = copy.deepcopy(class_p[t])
-                start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r)
+                start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r,seed=seed)
                 if center:
                     if size_dist == 'triangular':
                         local_size = int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))//2
@@ -1167,7 +1171,7 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
                 else:
                     C[('germ',)]  = [[class_p[t][0][i][0],class_p[t][0][i][1],0.0,{'germ':set([0.0])}]]
         for k in C: Y[k] = sorted(C[k],key=lambda x: x[0]) #append into Y and scan
-        print(list(Y.keys()))
+        if verbose: print(list(Y.keys()))
     # [2] merge and cleaning step algo--------------------------------------------------------------------------
     G = weight_graph(Y)
     P = scan_graph(G,scale=False)
@@ -1190,10 +1194,12 @@ def gen_class_mut_pos_map(ref_seq,class_p,mut_p,l,
     return M
 
 #generate inner SV regions
-def gen_mut_pos_inside(mut_pos,mut_l,mut_n,break_ends=0.25,low_bp=25):
+def gen_mut_pos_inside(mut_pos,mut_l,mut_n,break_ends=0.25,low_bp=25,seed=None):
+    if seed is not None: np.random.seed(seed)
     if break_ends < 0.0 or break_ends > 1.0:
         print('break_ends not set to a proper probabilty [0.0,1.0]')
-        raise AttributeError
+        if break_ends<0.0: break_ends = 0.0
+        if break_ends>1.0: break_ends = 1.0
     inside_pos = []
     if break_ends > 0.0: mut_n -= int(round(2.0*break_ends,0))
     if len(mut_pos)>0 and len(mut_pos[0])>1:
@@ -1246,7 +1252,9 @@ def complement_pos(pos,limits):
     return utils.LRF_1D(limits,pos)[2] #d1 is the sections of limits sliced away by the pos list
 
 #given a mut_pos with generate a new pos with flanking probabilty mut_prob
-def gen_mut_pos_flanking(mut_pos,mut_l,l_prob=0.25,r_prob=0.25,size_dist='uniform',lower_limit=10):
+def gen_mut_pos_flanking(mut_pos,mut_l,l_prob=0.25,r_prob=0.25,
+                         size_dist='uniform',lower_limit=10,seed=None):
+    if seed is not None: np.random.seed(seed)
     if len(mut_pos)>0:
         flank_pos,minima,maxima = [],min([pos[0] for pos in mut_pos]),max([pos[1] for pos in mut_pos])
         for pos in mut_pos:
@@ -1289,7 +1297,7 @@ def adjust_aneuploidy_effect(aneuploidy,ploidy,loss,loss_types=['DEL','INS','INV
                     aneuploidy[k]['dist'] = {i:aneuploidy[k]['dist'][i]/x for i in aneuploidy[k]['dist']}
     return aneuploidy
 
-#scane for
+#scan for
 def adjust_del_effect(vca,driver='mmej'):
     return True
 
@@ -1297,7 +1305,8 @@ def adjust_ins_effect(vca,driver='nhej'):
     return True
 
 #given a set of sequences and a sequency ploidy prob distribution
-def gen_aneuploidy(seqs,ploidy,CT,aneuploidy): #aneuploidy: {k:{0:0.05,1:0.05,2:0.8,3:0.05,4:0.025,5:0.025}}
+def gen_aneuploidy(seqs,ploidy,CT,aneuploidy,seed=None): #aneuploidy: {k:{0:0.05,1:0.05,2:0.8,3:0.05,4:0.025,5:0.025}}
+    if seed is not None: np.random.seed(seed)
     A,clones = {},sorted(list(CT.freq.keys()),key=lambda x: int(x.rsplit('_')[-1]))
     for k in seqs:
         if k in aneuploidy:
@@ -1343,7 +1352,8 @@ def gen_aneuploidy(seqs,ploidy,CT,aneuploidy): #aneuploidy: {k:{0:0.05,1:0.05,2:
     return A
 
 #equally divide into p random partitions proportional to prop from a disjoint position list pos
-def partition_pos(pos,p,prop=None,index_only=False):
+def partition_pos(pos,p,prop=None,index_only=False,seed=None):
+    if seed is not None: np.random.seed(seed)
     if prop is None:
         prop = [1.0/p for i in range(p)]
     elif sum(prop)>1.0:
@@ -1684,7 +1694,7 @@ def prop_class_mut_pos(M,wcu,gene_map):
         for k in M:
             gen_wcu[k],wcu_i[k],B[k] = {},{},{}
             for t in M[k]:
-                gen_wcu[k][t] = [[M[k][t][i][0], M[k][t][i][1], 0.0, {t: set(['%s_%s' % (t, i + 1)])}] for i in range(len(M[k][t]))]
+                gen_wcu[k][t] = [[M[k][t][i][0],M[k][t][i][1],0.0,{t: set(['%s_%s'%(t,i+1)])}] for i in range(len(M[k][t]))]
                 wcu_i[k][t] = {}  # wcu can be genes and gens can overlap so you may get more than one index back
                 if k in wcu:
                     for i in range(len(wcu[k])):
@@ -1795,7 +1805,8 @@ def extend_class_mut_pos(M,t,wcu):
 #given a set of chrom and pos for each for TRA distributed them into a tra_map
 #using ranomd uniform samping across all chrom routing pairs
 #tra_dict = {'chr11':[[0,100],...],'chr22':[]}
-def gen_tra_map(tra_dict):
+def gen_tra_map(tra_dict,seed=None):
+    if seed is not None: np.random.seed(seed)
     T = {}
     while len(list(tra_dict.keys()))>=2:
         i = np.random.choice(range(len([0 for a,b in it.permutations(list(tra_dict.keys()),2)])))
@@ -1826,7 +1837,8 @@ def get_num_mut(full_len, mut_len, mut_rate):
 def gen_inner_var_calls():
     return []
 
-def gen_genotypes(ploidy,pos,hetro=0.15):
+def gen_genotypes(ploidy,pos,hetro=0.15,seed=None):
+    if seed is not None: np.random.seed(seed)
     if ploidy==1:
         G = [[1] for i in range(len(pos))]
     elif ploidy==2:
@@ -1888,9 +1900,10 @@ def gen_clone_allele_map(part_map,CT):
 #    the final result should throw and error or not tabulate the edit
 #    if the simple merging step consumes preselected positions
 #take in the hetro value and use it to add the GT info in the FORMAT VCA field
-def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,
-                  tra_map=None,allele_map=None,insert_seqs=None,
-                  small=int(1E2),verbose=False,ref_path=None,gen_delim='\t'):
+def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,tra_map=None,
+                  allele_map=None,insert_seqs=None,small=int(1E2),
+                  ref_path=None,gen_delim='\t',seed=None,verbose=False):
+    if seed is not None: np.random.seed(seed)
     full_ref = refdict[chrom]
     vca,info,i = [],'',0     #init position list pointer
     if len(genotype)>0:
@@ -1898,6 +1911,9 @@ def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,
         if allele_map is not None:
             empty = '|'.join([str(0) for i in range(ploidy)])
             clone_order = sorted(allele_map,key=lambda x: int(x.split('_')[-1]))
+    if type(mut_type) is dict and 'INV' in mut_type:
+        inv_sizes = list(mut_type['INV']['l:n'].keys())
+        inv_min,inv_max = np.min(inv_sizes),np.max(inv_sizes)
     while i < len(mut_pos): #now check positions for 'N' masked content....
         pos = mut_pos[i]
         ref = full_ref[pos[0]:pos[1]]
@@ -1968,9 +1984,10 @@ def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,
                 vca += [gen_var_call(chrom,pos[0],ref,alt,info,geno)]
                 i   += 1
             elif type(mut_type) is dict and 'INV' in mut_type:
-                alt  = utils.get_reverse_complement(ref)
-                info = 'SVTYPE=INV;END=%s;SVLEN=%s;INV_TYPE=%s'%\
-                       (pos[1],pos[1]-pos[0],np.random.choice(mut_type['INV']['TYPE']))
+                inv_tp = min(1.0,max(0.0,(pos[1]-pos[0])-inv_min)/max(1.0,np.power(inv_max-inv_min,0.5)))
+                alt    = utils.get_reverse_complement(ref)
+                info   = 'SVTYPE=INV;END=%s;SVLEN=%s;INV_TYPE=%s'%\
+                       (pos[1],pos[1]-pos[0],np.random.choice(mut_type['INV']['TYPE'],p=[1.0-inv_tp,inv_tp]))
                 vca += [gen_var_call(chrom,pos[0],ref,alt,info,geno)]
                 i   += 1
             elif mut_type=='DEL':
@@ -1997,7 +2014,8 @@ def vcam_to_pos_map(vcam):
 #given a possible empty string = ref and a length = default is 0
 #either produce a new string that has a different random nuclideotide
 #for use as a substitution generator or just a full random insertion
-def gen_alt_seq(ref,alphabet=['A','C','G','T'],length=0):
+def gen_alt_seq(ref,alphabet=['A','C','G','T'],length=0,seed=None):
+    if seed is not None: np.random.seed(seed)
     alt = ''
     l = len(ref)
     sigma = set(alphabet) #do set difference for INS/SUB
@@ -2007,7 +2025,8 @@ def gen_alt_seq(ref,alphabet=['A','C','G','T'],length=0):
     return alt
 
 #one sigma look-back
-def gen_alt_seq2(ref,length=0):
+def gen_alt_seq2(ref,length=0,seed=None):
+    if seed is not None: np.random.seed(seed)
     alt = ''
     l = len(ref)
     dna = set(['A','C','G','T']) #do set difference for INS/SUB
@@ -2260,6 +2279,7 @@ def get_seq_pos(S,q):
 def merge_filter_sort_vcam(vcam,aneuploidy,small_cut=50,large_cut=int(260E6)):
     final,dki = [],{}
     for k in vcam:
+        print('merging chrom=%s'%k)
         if k in aneuploidy:
             if len(aneuploidy[k]): print('there is chrom %s aneuploidy'%k)
             for j in range(len(aneuploidy[k])):
@@ -2298,9 +2318,11 @@ def merge_filter_sort_vcam(vcam,aneuploidy,small_cut=50,large_cut=int(260E6)):
                         if sv_len >= small_cut and sv_len <= large_cut:
                             final += [vcam[k][i]]
                 final += [aneuploidy[k][j]] #now put in the aneuploidy call
-
         else:
-            final += vcam[k]
+            for i in range(len(vcam[k])):
+                sv_len = get_info_end(vcam[k][i].info)-vcam[k][i].pos+1
+                if sv_len >= small_cut and sv_len <= large_cut:
+                    final += [vcam[k][i]]
     if len(dki)>0:
         print('atempting to dump simulation state...')
         dump_tag = 'ano_issue_' + hashlib.md5(str(len(dki))).hexdigest()[0:5].upper()

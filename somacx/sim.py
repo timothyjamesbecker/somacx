@@ -1,8 +1,7 @@
-#Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
+#Timothy James Becker, PhD candidate, UCONN 01/10/2017-04/25/2020
 import copy
 import json
 import hashlib
-import gc
 import glob
 import time
 import socket
@@ -35,7 +34,8 @@ class Clone:
 class CloneTree:
     def __init__(self,ref_path=None,out_dir=None,
                  root_id=None,model=0.0,branch=2,decay=0.1,n=10,
-                 sim_cycle=None,json_path=None,gz=True):
+                 sim_cycle=None,json_path=None,gz=True,seed=None):
+        if seed is not None: np.random.seed(seed)
         if gz: ext_pat,idx_pat = '.fa.gz','i'
         else:  ext_pat,idx_pat = '.fa','.fai'
         if json_path is None:
@@ -284,7 +284,7 @@ def spool_fasta_clones(som_fa_map,chrom,ploidy,vca,
                     mut = copy.deepcopy(full_ref)
                     mut = vu.apply_var_calls(mut,vca,g=p-1,index=i)
                     utils.write_fasta({chrom+'.%s.%s'%(p,clone_id):mut},fasta_spool,index=faidx,gz=gz)
-        print('applied %s shared SNV|MNV to seq %s'%(len(vca),chrom))
+        print('spooled %s shared SNV|MNV|SV to seq %s'%(len(vca),chrom))
     else:
         for i in range(len(clones)): #clones are enumerated and sorted started from root=0
             for p in range(1,ploidy+1): #use a dot notation for seq duplicates
@@ -310,7 +310,7 @@ def spool_fasta_clones(som_fa_map,chrom,ploidy,vca,
                     #update the vca_pos---------------------------
                     mut = vu.apply_var_calls(mut,vu.update_vca_pos(vca,complex,g=p-1,index=i),g=p-1,index=i)
                     utils.write_fasta({chrom+'.%s.%s'%(p,clone_id):mut},fasta_spool,index=faidx,gz=gz)
-        print('applied %s shared SNV|MNV to seq %s'%(len(vca),chrom))
+        print('spooled %s shared SNV|MNV|SV to seq %s'%(len(vca),chrom))
     if anueuploidy is not None: #assume the other chrom have been written
         for i in range(len(clones)):
             clone_id = int(clones[i].rsplit('_')[-1]) #clone id and ploidy 1 to ploidy+1
@@ -535,7 +535,8 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
 # ks is the chroms that will get SVs
 # seqs is the reference dict
 def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
-                    gen_method='fast',gz=True,write_snv_indel=True,small_cut=50):
+                    gen_method='fast',gz=True,write_snv_indel=False,small_cut=50,seed=None):
+    if seed is not None: np.random.seed(seed)
     if gz: ext_pat,idx_pat = '.fa.gz','i'
     else:  ext_pat,idx_pat = '.fa','.fai'
     if sys.version_info.major < 3:
@@ -636,9 +637,11 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
             # (4) apply  INV->(inner DEL INS and SUB):::::::::::::::::::::::::::::::::::::
             if 'INV' in M[k]:
                 complex_pos = []
-                inv_params = {'INV': {'TYPE': mut_p[2]['INV']['TYPE'],
-                                      'TP':   mut_p[2]['INV']['TP'],
-                                      's:p':  mut_p[2]['INV']['s:p']}}
+                inv_params  = {'INV': {'TYPE': mut_p[2]['INV']['TYPE'],
+                                       'TP':   mut_p[2]['INV']['TP'],
+                                       's:p':  mut_p[2]['INV']['s:p'],
+                                       'l:n':  mut_p[2]['INV']['l:n']}
+                               }
                 inv_vca = vu.gen_var_calls(seqs, k, inv_params, M[k]['INV'], G[k]['INV'])  # inv pos
                 print('L2:applied %s INV mean-len=%s SVs to seq %s' % \
                       (len(inv_vca), vu.get_mean_size(M[k]['INV']), k))
@@ -772,8 +775,9 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
 
 #somatic workflow that generates heterogenious data through a CSC or sub clonal model
 def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene_map,
-                    gen_method='fast',gz=True,clean=True,gen_center=False,write_snv_indel=True,
-                    small_cut=50,clone_tree_path=None,clone_tree_params=None,aneuploidy=None):
+                    gen_method='fast',gz=True,clean=True,gen_center=False,write_snv_indel=False,
+                    small_cut=50,clone_tree_path=None,clone_tree_params=None,aneuploidy=None,seed=None):
+    if seed is not None: np.random.seed(seed)
     if gz: ext_pat,idx_pat = '.fa.gz','i'
     else:  ext_pat,idx_pat = '.fa','.fai'
     #[1] generate the clone tree using model=0.0->CSC or model=1.0->sub clonal for hetergeneity
@@ -781,7 +785,7 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
         print('need to pass a clonal_tree json file path or use parameters to build a new one...')
         raise AttributeError
     if clone_tree_path is not None:
-        CT = CloneTree(ref_path=ref_path,out_dir=out_dir,json_path=clone_tree_path)
+        CT = CloneTree(ref_path=ref_path,out_dir=out_dir,json_path=clone_tree_path,seed=seed)
     if clone_tree_params is not None: #command lines will overide the json file
         CT = CloneTree(ref_path,out_dir,sample,
                        clone_tree_params['model'],
@@ -789,7 +793,7 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                        clone_tree_params['decay'],
                        int(clone_tree_params['cov']/2),
                        int(clone_tree_params['cov']/2),
-                       gz=gz)
+                       gz=gz,seed=seed)
     print('%s clones are active'%len(CT.nodes))
     ks = list(set(list(vcam[1].keys())+list(vcam[2].keys())+list(vcam[3].keys())))
     s_vcam    = {k:{} for k in vcam}
@@ -805,38 +809,62 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
     M,G,T,rate = {},{},{} ,{} # generate non-overlapping regions for SVs in layer 2 of mut_p
     for k in gs:
         print('building initial SV distributions for seq %s' % k)
-        seqs = {k:ru.read_fasta_chrom(ref_path,k)} #one at a time now
+        seqs      = {k:ru.read_fasta_chrom(ref_path,k)} #one at a time now
         l_pos,l_w = vu.wcu_to_pos_w(loss_wcu[k],len(seqs[k])) #option to set background and scaling
         g_pos,g_w = vu.wcu_to_pos_w(gain_wcu[k],len(seqs[k])) #option to set background and scaling
-        class_p = {'DEL':copy.deepcopy([l_pos,l_w]),'INV':copy.deepcopy([l_pos,l_w]),
-                   'INS':copy.deepcopy([l_pos,l_w]),'TRA':copy.deepcopy([l_pos,l_w]),
-                   'DUP':copy.deepcopy([g_pos,g_w])}
+        class_p   = {'DEL':copy.deepcopy([l_pos,l_w]),'INV':copy.deepcopy([l_pos,l_w]),
+                     'INS':copy.deepcopy([l_pos,l_w]),'TRA':copy.deepcopy([l_pos,l_w]),
+                     'DUP':copy.deepcopy([g_pos,g_w])}
         if gen_method=='fast':
             M[k] = vu.gen_class_mut_pos_map(seqs[k],copy.deepcopy(class_p),mut_p,
-                                            l=2,size_prop=2.0,center=gen_center,germ=False)
+                                            l=2,size_prop=2.0,center=gen_center,germ=False,verbose=False)
         else:
             M[k] = vu.gen_class_mut_pos_map_slow(seqs[k],copy.deepcopy(class_p),mut_p,
                                                  l=2,size_prop=2.0,center=gen_center)
         rate[k] = vu.mut_p_rate(mut_p,M[k],gs[k],l=2)
     l_pos,l_w,g_pos,g_w = [],[],[],[]
 
-    #check overlapping events and filter as needed
-    # old_pos_map,over = vu.vcam_to_pos_map(vcam[2]),{}
-    # for k in old_pos_map:
-    #     over[k] = []
-    #     if M.has_key(k):
-    #         N = copy.deepcopy(M[k])
-    #         N['germ'] = []
-    #         for pos in old_pos_map[k]: N['germ']  += [pos]
-    #         N['germ'] = sorted(N['germ'],key=lambda x: x[0])
-    #         over[k] = vu.mut_overlap(N)
-    #         #if [i[3].keys() for i in over]
-    #         if not vu.mut_over_detected(over[k]):
-    #             print('no somatic to germline overlap detected for seq=%s'%k)
-    #         else:
-    #             print('somatic to germline overlap detected for seq=%s'%k)
-    #             print(over[k])
-    #return seqs[k], copy.deepcopy(class_p), mut_p
+    #nhej => small DEL increase------------------------------------------------------------------------
+    loss,gain = wcu_enrichment(M,loss_wcu,gain_wcu,gene_map)
+    losses = []
+    for k in loss:
+        losses += [[0,0]] #total proportion of effected genes
+        for t in ['INV','INS','TRA','DEL']:
+            for j in ['mmej','nhej']:
+                if j in loss[k]:
+                    if t in loss[k][j][k]:
+                        losses[-1][0] += loss[k][j][k][t][0]
+                        losses[-1][1]  = loss[k][j][k][t][1]
+        losses[-1][0] = min(losses[-1][0],losses[-1][1])
+    loss_prop   = sum([l[0] for l in losses])
+    loss_denom  = sum([l[1] for l in losses])
+    if loss_denom>0.0: loss_prop /= (1.0*loss_denom)
+    if loss_prop>0.0: print('end joining is impaired for somatic tissues with proportion=%s'%loss_prop)
+    ej_x,germ_M = {},vu.vcam_to_pos_map(vcam[2])
+    for k in gs:
+        rngs = []
+        if k in M:
+            for t in M[k]: rngs += utils.merge_1D(M[k][t])
+            rngs       = utils.merge_1D(sorted(rngs,key=lambda x: x[0]))
+        if k in germ_M:
+            germ_M[k]  = utils.merge_1D(sorted(germ_M[k],key=lambda x: x[0]))
+            rngs       = utils.merge_1D(sorted(rngs+germ_M[k],key=lambda x: x[0]))
+            seqs       = {k:ru.read_fasta_chrom(ref_path,k)}
+            open_pos   = utils.LRF_1D(rngs,[[rngs[0][0],rngs[-1][1]]])[-1] #inner ranges
+            ej_loss    = {k:vu.pos_to_wcu(open_pos,w=50*loss_prop,label='ej_loss')}
+            l_pos,l_w  = vu.wcu_to_pos_w(ej_loss,len(seqs[k]))
+            ej_class_p = {'DEL':copy.deepcopy([l_pos,l_w])} #increased DEL
+            ej_mut_p   = {2:{'DEL':{'l:n':{10.0:(1e-6)*loss_prop,50.0:(6e-7)*loss_prop},'h':0.9}}}
+            ej_M       = vu.gen_class_mut_pos_map(seqs[k],ej_class_p,ej_mut_p,l=2,
+                                                  size_prop=1.0,center=gen_center,germ=False,verbose=False)
+            if 'DEL' in ej_M:
+                ej_x[k] = len(ej_M['DEL'])
+                if k in M:
+                    if 'DEL' in M[k]: M[k]['DEL'] = sorted(M[k]['DEL']+ej_M['DEL'],key=lambda x: x[0])
+                    else:             M[k]['DEL'] = sorted(ej_M['DEL'],key=lambda x: x[0])
+                else:
+                    M[k] = {'DEL':sorted(ej_M['DEL'],key=lambda x: x[0])}
+        if loss_prop>0.0: print('end joining impairments yeilded %s additional small DEL events'%sum([ej_x[k] for k in ej_x]))
     old_pos_map,over = {},{}
 
     # correct areas of gain for onco genes------------------------------------
@@ -861,6 +889,7 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
         if 'TRA' in M[k]: TK[k] = copy.deepcopy(M[k]['TRA'])
     T = vu.gen_tra_map(TK)
 
+    # scale aneuploidy risk for each chrom based on mitcp loss that occured---------------------------------
     s_A = None
     if aneuploidy is not None:
         print('aneuploidy is being modeled')
@@ -869,11 +898,13 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
         mod_aneuploidy = vu.adjust_aneuploidy_effect(aneuploidy,ploidy_map,loss,dist='uniform')
         print('modified aneuploidy is %s'%mod_aneuploidy)
         s_A = vu.gen_aneuploidy({k:ru.read_fasta_chrom(ref_path,k) for k in ks},ploidy_map,CT,mod_aneuploidy)
+        ss = list(s_A.keys())
+        for k in ss:
+            if len(s_A[k])<=0: s_A.pop(k)
         print('aneuploidy has been generated for chrom %s'%list(s_A.keys()))
         print(s_A)
 
     f_start = time.time()
-
     for k in gs: #reuse the old mnv_vcam and sv_vcam
         for l in s_vcam:
             if not k in s_vcam[l]: s_vcam[l][k] = []
@@ -898,7 +929,6 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
         #spool the first layer---------------------------------------------------
         s_vcam[1][k] += vca
         s_vcam[1][k] = sorted(s_vcam[1][k],key=lambda x:(x.chrom.zfill(100),x.pos))
-
         spool_fasta_clones(som_fa_map,k,ploidy,s_vcam[1][k],seqs[k],gz=gz)
         #spool the first layer---------------------------------------------------
         # now set total SVs and partition into DEL,DUP,INV,TRA
@@ -920,8 +950,12 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                 allele_map = vu.gen_clone_allele_map(part_map,CT)
                 del_vca = vu.gen_var_calls(seqs,k,'DEL',M[k]['DEL'],G[k]['DEL'],
                                            allele_map=allele_map,ref_path=ref_path)  # del_pos
-                print('L2:applied %s DEL mean-len=%s SVs to seq %s' % \
-                      (len(del_vca), vu.get_mean_size(M[k]['DEL']), k))
+                if loss_prop>0.0:
+                    print('L2:applied %s DEL mean-len=%s SVs to seq %s (%s due to end joining losses)' % \
+                          (len(del_vca),vu.get_mean_size(M[k]['DEL']),k,round(ej_x[k]/(1.0*len(M[k]['DEL'])),2)))
+                else:
+                    print('L2:applied %s DEL mean-len=%s SVs to seq %s' % \
+                          (len(del_vca), vu.get_mean_size(M[k]['DEL']), k))
             # (3) apply large DUP:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
             if 'DUP' in M[k]:
                 part_map   = vu.partition_pos(M[k]['DUP'],len(CT.nodes),prop=CT.mut_prop(),index_only=True)
@@ -940,8 +974,10 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                 allele_map  = vu.gen_clone_allele_map(part_map,CT)
                 complex_pos = []
                 inv_params  = {'INV': {'TYPE': mut_p[2]['INV']['TYPE'],
-                                       'TP': mut_p[2]['INV']['TP'],
-                                       's:p': mut_p[2]['INV']['s:p']}}
+                                       'TP':   mut_p[2]['INV']['TP'],
+                                       's:p':  mut_p[2]['INV']['s:p'],
+                                       'l:n':  mut_p[2]['INV']['l:n']}
+                               }
                 inv_vca = vu.gen_var_calls(seqs,k,inv_params,M[k]['INV'],G[k]['INV'],
                                            allele_map=allele_map,ref_path=ref_path)  # inv pos
                 print('L2:applied %s INV mean-len=%s SVs to seq %s' % \
@@ -985,13 +1021,13 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
             # now work on the inner variants that are attached to complex SVs
             if 'INV' in M[k]:  # check for complex inv now
                 inv_del_vca,comp_del_vca,inv_ins_vca,comp_ins_vca = [],[],[],[]
-                sm_l = min(mut_p[2]['INV']['s:p'])
+                sm_l = min(mut_p[2]['INV']['s:p']) #makes INS,DEL smallest INV size
                 n_l,flank_l,flank_r = mut_p[2]['INV']['s:p'][sm_l]
                 print('L2:Inner:acquiring inner positions for complex INV calls on chrom %s' % k)
                 inner_pos = vu.gen_mut_pos_inside(complex_pos,mut_l=int(sm_l),mut_n=int(n_l),
                                                   break_ends=flank_l,low_bp=25)
                 print('L2:Inner:partitioning for inner DEL and INS calls on chrom %s' % k)
-                part_pos = vu.partition_pos(inner_pos,p=2,prop=[0.4, 0.6])  # split among INS,DEL
+                part_pos = vu.partition_pos(inner_pos,p=2,prop=[0.4, 0.6])  # split among INS,DEL so p=2
                 if 0 in part_pos:  # del string modification and vcf generation
                     inv_del_pos  = part_pos[0]
                     inv_del_gen  = vu.get_inner_genotypes(complex_pos, G[k]['INV'],inv_del_pos)
@@ -1017,12 +1053,7 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                 #now write out the complex INV inner events
                 vca          = sorted(inv_del_vca+inv_ins_vca,key=lambda x:(x.chrom.zfill(100),x.pos))
                 r_vca        = sorted(comp_del_vca+comp_ins_vca,key=lambda x:(x.chrom.zfill(100),x.pos))
-                s_vcam[2][k] = sorted(s_vcam[2][k]+r_vca,key=lambda x: (x.chrom.zfill(100),x.pos))
-
-                #check for nhej and mmej here-----------------------------------------
-                #s_vcam[2][k] = vu.adjust_del_effect()
-                #s_vcam[2][k] = vu.adjust_ins_effect()
-
+                s_vcam[2][k] = sorted(s_vcam[2][k]+vca,key=lambda x: (x.chrom.zfill(100),x.pos))
                 spool_fasta_clones(som_fa_map,k,ploidy,vca,seqs[k],complex=s_vcam[2][k],gz=gz)
 
         # second round of SNV that are post SV
@@ -1041,7 +1072,7 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
         s_vcam[3][k] += vca
         s_vcam[3][k] = sorted(s_vcam[3][k],key=lambda x:(x.chrom.zfill(100),x.pos))
         spool_fasta_clones(som_fa_map,k,ploidy,s_vcam[3][k],seqs[k],anueuploidy=s_A,gz=gz)
-
+        #each chrom-----------------------------------------------------------------------
     # test a modification that does chr1_DNA1, chr1_DNA2, ect
     m_start = time.time()
     print('merging all spooled seqs to the somatic fasta')
