@@ -842,29 +842,31 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
     if loss_prop>0.0: print('end joining is impaired for somatic tissues with proportion=%s'%loss_prop)
     ej_x,germ_M = {},vu.vcam_to_pos_map(vcam[2])
     for k in gs:
-        rngs = []
-        if k in M:
-            for t in M[k]: rngs += utils.merge_1D(M[k][t])
-            rngs       = utils.merge_1D(sorted(rngs,key=lambda x: x[0]))
-        if k in germ_M:
-            germ_M[k]  = utils.merge_1D(sorted(germ_M[k],key=lambda x: x[0]))
-            rngs       = utils.merge_1D(sorted(rngs+germ_M[k],key=lambda x: x[0]))
-            seqs       = {k:ru.read_fasta_chrom(ref_path,k)}
-            open_pos   = utils.LRF_1D(rngs,[[rngs[0][0],rngs[-1][1]]])[-1] #inner ranges
-            ej_loss    = {k:vu.pos_to_wcu(open_pos,w=50*loss_prop,label='ej_loss')}
-            l_pos,l_w  = vu.wcu_to_pos_w(ej_loss,len(seqs[k]))
-            ej_class_p = {'DEL':copy.deepcopy([l_pos,l_w])} #increased DEL
-            ej_mut_p   = {2:{'DEL':{'l:n':{10.0:(1e-6)*loss_prop,50.0:(6e-7)*loss_prop},'h':0.9}}}
-            ej_M       = vu.gen_class_mut_pos_map(seqs[k],ej_class_p,ej_mut_p,l=2,
-                                                  size_prop=1.0,center=gen_center,germ=False,verbose=False)
-            if 'DEL' in ej_M:
-                ej_x[k] = len(ej_M['DEL'])
-                if k in M:
-                    if 'DEL' in M[k]: M[k]['DEL'] = sorted(M[k]['DEL']+ej_M['DEL'],key=lambda x: x[0])
-                    else:             M[k]['DEL'] = sorted(ej_M['DEL'],key=lambda x: x[0])
-                else:
-                    M[k] = {'DEL':sorted(ej_M['DEL'],key=lambda x: x[0])}
-        if loss_prop>0.0: print('end joining impairments yeilded %s additional small DEL events'%sum([ej_x[k] for k in ej_x]))
+        if loss_prop>0.0:
+            print('end joining impairments yeilded %s additional small DEL events'%sum([ej_x[k] for k in ej_x]))
+            rngs = []
+            if k in M:
+                for t in M[k]: rngs += utils.merge_1D(M[k][t])
+                rngs       = utils.merge_1D(sorted(rngs,key=lambda x: x[0]))
+            if k in germ_M:
+                germ_M[k]  = utils.merge_1D(sorted(germ_M[k],key=lambda x: x[0]))
+                rngs       = utils.merge_1D(sorted(rngs+germ_M[k],key=lambda x: x[0]))
+                seqs       = {k:ru.read_fasta_chrom(ref_path,k)}
+                if len(rngs)>0:
+                    open_pos   = utils.LRF_1D(rngs,[[rngs[0][0],rngs[-1][1]]])[-1] #inner ranges
+                    ej_loss    = {k:vu.pos_to_wcu(open_pos,w=50*loss_prop,label='ej_loss')}
+                    l_pos,l_w  = vu.wcu_to_pos_w(ej_loss,len(seqs[k]))
+                    ej_class_p = {'DEL':copy.deepcopy([l_pos,l_w])} #increased DEL
+                    ej_mut_p   = {2:{'DEL':{'l:n':{10.0:(1e-6)*loss_prop,50.0:(6e-7)*loss_prop},'h':0.9}}}
+                    ej_M       = vu.gen_class_mut_pos_map(seqs[k],ej_class_p,ej_mut_p,l=2,
+                                                          size_prop=1.0,center=gen_center,germ=False,verbose=False)
+                    if 'DEL' in ej_M:
+                        ej_x[k] = len(ej_M['DEL'])
+                        if k in M:
+                            if 'DEL' in M[k]: M[k]['DEL'] = sorted(M[k]['DEL']+ej_M['DEL'],key=lambda x: x[0])
+                            else:             M[k]['DEL'] = sorted(ej_M['DEL'],key=lambda x: x[0])
+                        else:
+                            M[k] = {'DEL':sorted(ej_M['DEL'],key=lambda x: x[0])}
     old_pos_map,over = {},{}
 
     # correct areas of gain for onco genes------------------------------------
