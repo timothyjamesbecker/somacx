@@ -4,6 +4,7 @@ import sys
 import re
 import copy
 import datetime
+import time
 import itertools as it
 import gzip
 import json
@@ -259,7 +260,6 @@ def read_de_gene_list(path,delim='\t'):
 #W = weight list or risk multiplier for each gene in the gene list
 #G = gene_map = ['gene':{GS1:[c1,c2,...],GS2:[c1,c2,c3,...]}]
 #P = wcu: {k:[[start,end,weight,{idx}],...]} -> idx = {'onco':set(['MYC2','BRAC1',...])}
-#:::TO DO::: will need to write a js version of this conversion tool :::TO DO:::
 def gene_list_to_wcu(L,W,G,label=''):
     P = {}
     for i in range(len(L)):
@@ -544,9 +544,6 @@ def json_mask_to_wcu(path,w=0.0,label='json'):
             y += 1
     return g
 
-
-
-
 #chrom\tstart\tend\tp-value
 #dump the wcu used for germline and somatic
 #and check against the VCF files generated
@@ -633,6 +630,160 @@ def g1kp3_to_gene_list(path,gene_map,filter=[int((1/50.0)*2500),int((1/2.0)*2500
         with open(get_local_path(write),'w') as f:
             f.write('\n'.join(total))
     return gain,loss,total
+
+def pick_random_g1kp3_sample(vcf_path,skip='#',delim='\t',s_i=9):
+    s,g,h = '',[],[]
+    if vcf_path.endswith('.gz'):
+        with gzip.GzipFile(vcf_path,'rb') as f:
+            s = ''.join([l.decode() for l in f.readlines()])
+    elif vcf_path.endswith('.vcf'):
+        with open(vcf_path,'r') as f:
+            s = ''.join(f.readlines())
+    else: print('incorrect vcf file suffix...')
+    while s[-1]=='\n': s = s[:-1] #clean up any loose '\n'
+    for t in s.split('\n'):
+        if t.startswith(skip): h += [t]
+        else: break
+    #[1] read by type
+    sample_ids = h[-1].split(delim)[s_i:] #2504 sample names/ids
+    sdx_i = {sample_ids[i]:i for i in range(len(sample_ids))}
+    sdx_ks = sorted(list(sdx_i.keys()))
+    return np.random.choice(sdx_ks)
+
+#latest g1kp3_vcf sample file to indivodual vcf output
+def all_g1kp3_vcf_to_vcam(vcf_path,ref_path,sample,seqs,types=['INS','DEL','DUP','INV'],
+                          skip='#',delim='\t',alt_i=4,info_i=7,s_i=9,geno_split='|',add_chr=True,verbose=True):
+    #[0] read raw vcf from compressed stream
+    t_start = time.time()
+    if verbose: print('reading and parsing %s vcf file as a vcam'%vcf_path)
+    s,g,h = '',[],[]
+    if vcf_path.endswith('.gz'):
+        with gzip.GzipFile(vcf_path,'rb') as f:
+            s = ''.join([l.decode() for l in f.readlines()])
+    elif vcf_path.endswith('.vcf'):
+        with open(vcf_path,'r') as f:
+            s = ''.join(f.readlines())
+    else: print('incorrect vcf file suffix...')
+    while s[-1]=='\n': s = s[:-1] #clean up any loose '\n'
+    for t in s.split('\n'):
+        if not t.startswith(skip): g += [t.split(delim)]
+        else:                      h += [t]
+    #[1] read by type
+    sample_ids = h[-1].split(delim)[s_i:] #2504 sample names/ids
+    sdx_i = {sample_ids[i]:i for i in range(len(sample_ids))}
+    sdx_ks = list(sdx_i.keys())
+    samples = [sample]
+    for s in sdx_ks:
+        if s not in samples: sdx_i.pop(s)
+    S,M,row_num = {},{},0
+    for row in g:
+        if add_chr: row[0] = 'chr'+row[0]
+        start = int(row[1])
+        t     = row[info_i].split('SVTYPE=')[-1].split(';')[0]
+        if row[alt_i].find('INS=')>0:
+            t,end,info_svtype = 'INS',start,row[info_i].split('SVTYPE=')
+            row[info_i] = info_svtype[0]+'SVTYPE=INS;'+';'.join(info_svtype[-1].split('SVTYPE=')[-1].split(';')[1:])+';END=%s'%end
+        elif row[info_i].find('SVLEN=')>0: end = start+int(row[info_i].rsplit('SVLEN=')[-1].split(';')[0])
+        else:                              end = int(row[info_i].split('END=')[-1].split(';')[0])
+        svl   = abs(end-start)
+        af    = row[info_i].split(';AF=')[-1].split(';')[0]
+        a_id  = row[2]
+        if row[alt_i].find('CN')>0: #each sample only has one of the possible alleles!
+            cns  = [int(x.replace('<','').replace('>','').replace('CN','')) for x in row[alt_i].split(',')]
+            af   = [float(x) for x in af.split(',')]
+        else: af  = float(af)
+        lt = t
+        for s in sdx_i: #unpack some of the VCF file format into a dict
+            gn = row[s_i:][sdx_i[s]]  #get genotype information
+            ls = len(gn.split(geno_split))
+            if gn=='.': gn = geno_split.join(['0' for x in range(ls)]) #check for missing values='.'
+            gh = [int(x) for x in gn.split(geno_split)]                #split for genotype parsing
+            gt = sum(gh)                                               #sum > 0 => variation present
+            if gt>0 and s in samples: #only processes the g1kp3 samples you need: #genotype is present: 1|0,0|1,1|1................................
+                ap = 0
+                for i in range(len(gh)):
+                    if gh[i]>0: ap = i
+                ht,cn = 1.0*sum([1 if x==gh[ap] else 0 for x in gh])/ls,ls
+                if t=='DEL':
+                    cn = sum([1 if x==0 else 0 for x in gh]) # cn = 0 or 1 for ploidy 1-2
+                    naf = af
+                elif t=='DUP' or t=='CNV': #calculate het and cn for DEL/DUP/CNV dynamic
+                    cn,dels,gns = 0,0,[1]+cns
+                    if type(af) is float: naf = [af]
+                    naf,maf = [1.0-sum(af)]+af,0.0
+                    for i in range(len(gh)):
+                        if gns[gh[i]]==0: dels += 1
+                        if gns[gh[i]] != 1: maf = max(maf,naf[gh[i]])
+                        cn  += gns[gh[i]]
+                    naf = maf
+                    if cn<2:
+                        t,info_svtype = 'DEL',row[info_i].split('SVTYPE=')
+                        row[info_i] = info_svtype[0]+'SVTYPE=DEL;'+';'.join(info_svtype[-1].split('SVTYPE=')[-1].split(';')[1:])
+                    elif cn>2 and dels<1:
+                        t,info_svtype = 'DUP',row[info_i].split('SVTYPE=')
+                        row[info_i] = info_svtype[0]+'SVTYPE=DUP;'+';'.join(info_svtype[-1].split('SVTYPE=')[-1].split(';')[1:])
+                else: naf = af
+                if t in types:
+                    if row[0] in seqs:
+                        cdx = (row[0],start,end,t)
+                        if cdx not in M:   #no duplicate entries
+                            if (not row[info_i].startswith('END=')) and row[info_i].find(';END=')<0:     row[info_i] += ';END=%s'%end
+                            if (not row[info_i].startswith('SVLEN=')) and row[info_i].find(';SVLEN=')<0: row[info_i] += ';SVLEN=%s'%(end-start)
+                            row[info_i] = row[info_i].replace(';;',';')
+                            vc = VariantCall(chrom=row[0],pos=start,identifier=row[2],ref=row[3],
+                                             alt=row[alt_i],qual=row[5],flter=row[6],info=row[info_i],frmat=gn)
+                            if vc.chrom in S: S[vc.chrom] += [vc]
+                            else:             S[vc.chrom]  = [vc]
+                            M[cdx]  = 1
+                        else: M[cdx] += 1
+            t = lt
+        row_num += 1
+        if verbose and row_num%10000==0: print('%s vcf rows processed'%row_num)
+    if verbose and row_num%10000>0: print('%s vcf rows processed'%row_num)
+
+    #check each row for SVTYPE, SVLEN, END info tags
+    I = {}
+    for k in S:
+        I[k] = []
+        for i in range(len(S[k])):
+            if S[k][i].info.find('SVLEN=')<0 or S[k][i].info.find('END=')<0:
+                I[k] += [i]
+
+    #[2] fix up the vc for somacx compatibilty
+    for k in sorted(list(S.keys()),key=lambda x: x.zfill(250)):
+        print('converting %s SVs to soMaCX form on chrom %s'%(len(S[k]),k))
+        for i in range(len(S[k])):
+            svtype = get_info_type(S[k][i].info)
+            # DEL are fine.... nope, ref need to be the ref[vc.pos:vc.end]
+            if svtype == 'DEL':
+                S[k][i].ref = ru.read_fasta_substring(ref_path,k,S[k][i].pos,S[k][i].end)
+                S[k][i].alt = '<DEL>'
+                S[k][i].info = set_info_len(S[k][i].info,get_info_len(S[k][i].info)+1)
+            # 'SVTYPE=DUP;END=247916018;SVLEN=56793;DUP_POS=247859225;DUP_TYPE=TANDEM;ICN=4'
+            if svtype == 'DUP':  # CN, D_POS, ...
+                S[k][i].ref = ru.read_fasta_substring(ref_path,k,S[k][i].pos,S[k][i].end)
+                S[k][i].info = set_info_len(S[k][i].info,get_info_len(S[k][i].info)+1)
+                S[k][i].info += ';DUP_POS=%s;DUP_TYPE=TANDEM;ICN=4'%S[k][i].pos
+            if svtype == 'INV':  # TYPE == SIMPLE
+                S[k][i].info = set_info_len(S[k][i].info,get_info_len(S[k][i].info)+0)
+                S[k][i].info += ';INV_TYPE=PERFECT'
+                S[k][i].ref = ru.read_fasta_substring(ref_path,k,S[k][i].pos,S[k][i].end)
+                S[k][i].alt = utils.get_reverse_complement(S[k][i].ref)
+            if svtype == 'INS':
+                S[k][i].info = set_info_len(S[k][i].info,get_info_len(S[k][i].info)+0)
+    if 'Y' in S and 'X' in S:
+        for i in range(len(S['Y'])):
+            S['Y'][i].frmat = '1'
+        for i in range(len(S['X'])):
+            S['X'][i].frmat = '1'
+    if 'chrY' in S and 'chrX' in S:
+        for i in range(len(S['chrY'])):
+            S['chrY'][i].frmat = '1'
+        for i in range(len(S['chrX'])):
+            S['chrX'][i].frmat = '1'
+    t_stop = time.time()
+    if verbose: print('finished %s in %s sec'%(vcf_path,round(t_stop-t_start,2)))
+    return S
 
 # returns a dict of chroms and number of Variants
 def vcf_chroms(path):
@@ -729,7 +880,6 @@ def vcf_to_vcam(vcf_path,ref_path,chroms,skip='#',delim='\t',small=50,seed=None)
                     if svtype == 'INS':
                         l[k][i].info = set_info_len(l[k][i].info,get_info_len(l[k][i].info)+1)
                     #if svtype == 'TRA' ...
-                    #if svtype == 'INS' ? ...
         else: #g1kp3 vcf file
             for i in g:
                 if i is not None and len(i) > 0 and i[0] in chroms:

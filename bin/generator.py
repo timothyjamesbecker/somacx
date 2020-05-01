@@ -133,15 +133,16 @@ def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_pat,
             return True
         return False
 
-des = """soMaCX: Generator v0.1.3, 01/01/2017-04/26/2020 Timothy James Becker"""
+des = """soMaCX: Generator v0.1.3, 01/01/2017-04/30/2020 Timothy James Becker"""
 parser = argparse.ArgumentParser(description=des)
 parser.add_argument('-r','--ref_path',type=str,help='reference fasta input file\t[None]')
 parser.add_argument('-o','--out_dir',type=str,help='output directory\t[None]')
-parser.add_argument('-c','--chroms',type=str,help='comma seperate chrom list to create large DEL,DUP,INV on\t[11,20]')
-parser.add_argument('-C','--ref_chroms',type=str,help='comma seperate chrom list to create fasta with\t[1-22,X,Y,MT]')
-parser.add_argument('-j','--complex_generator_json',type=str,help='full somacx complex generator json file.\t[None]')
+parser.add_argument('-c','--chroms',type=str,help='comma seperate chrom list to create large DEL,DUP,INV,INS,TRA on\t[1-22,X,Y,MT]')
+parser.add_argument('-C','--ref_chroms',type=str,help='comma seperate chrom list to create fasta with (should be a superset of -c)\t[1-22,X,Y,MT]')
+parser.add_argument('-j','--complex_generator_json',type=str,help='full somacx complex generator json file (can be gzipped).\t[None]')
 parser.add_argument('--vcf',type=str,help='provide a FusorSV format VCF4 file for SVs generation at germline step\t[None]')
-parser.add_argument('--method',type=str,help='fast or slow method for generation\t[fast]')
+parser.add_argument('--g1k_sample',type=str,help='1000 genomes sample to use for SVs generation at germline step\t[HG00096]')
+parser.add_argument('--method',type=str,help='fast (inaccurate) or slow (accurate) method for pos/type generation\t[slow]')
 parser.add_argument('--uncomp',action='store_true',help='don\'t use htslib/bgzip .gz compression for read/write\t[False]')
 parser.add_argument('--single',action='store_true',help='don\'t delete single clone genomes\t[False]')
 parser.add_argument('--center',type=bool,help='for somatic position generation, center the ranges\t[False]')
@@ -150,8 +151,8 @@ parser.add_argument('--branch',type=str,help='[0.0,1.0] branching factor or chan
 parser.add_argument('--decay',type=str,help='[0.0,1.0] decay factor or chance that a cell node dies each cycle, where 1.0 is certain cell death,csvs will indicate a random range\t[0.001]')
 parser.add_argument('--cov',type=str,help='>2 total coverage/ploidy that will be simulated, used as a lower bound so data is not clipped past noise level,csvs will indicate a random range\t[10]')
 parser.add_argument('--small_cut',type=int,help='filter out variants that are less than this size in bp\t[1]')
-parser.add_argument('--seed',type=int,help='integer for random seed\t[None]')
-parser.add_argument('--verbose',action='store_true',help='output more result mertics to stdout\t[False]')
+parser.add_argument('--seed',type=int,help='repeatable random seed for generation\t[None]')
+parser.add_argument('--verbose',action='store_true',help='output more information to stdout\t[False]')
 args = parser.parse_args()
 
 print('starting: \n'+des+'\n')
@@ -178,6 +179,10 @@ if args.vcf is not None:
         raise AttributeError
 else:
     prior_vcf = None
+if args.g1k_sample is not None:
+    g1k_sample = args.g1k_sample
+else:
+    g1k_sample = None
 if args.out_dir is not None:
     out_dir = args.out_dir
     if not os.path.exists(out_dir): os.makedirs(out_dir)
@@ -239,7 +244,7 @@ elif args.complex_generator_json is not None:
 else:
     full_json = None
 if args.method is not None:          method = args.method
-else:                                method = 'fast'
+else:                                method = 'slow'
 if args.uncomp:                      gz     = False
 else:                                gz     = True
 if args.single:                      clean  = False
@@ -331,6 +336,20 @@ if prior_vcf is not None: #via FusorSV_VCF file
     vcf_vcam = vu.vcam_remove_conflicts(vcf_vcam)
     print('variantion is present on: %s'%list(vcf_vcam.keys()))
 
+if g1k_sample is not None: #via built in vcf
+    vcf_path = vu.get_local_path()+'grch38.all.geno.vcf.gz'
+    print('loading g1k vcf file:%s'%vcf_path)
+    if seed is not None: np.random.seed(seed)
+    if g1k_sample=='random': g1k_sample = vu.pick_random_g1kp3_sample(vcf_path)
+    vcf_vcam = vu.all_g1kp3_vcf_to_vcam(vcf_path,ref_path,sample=g1k_sample,seqs=list(S.keys()))
+    print('using sample=%s'%g1k_sample)
+    if 'Y' not in vcf_vcam and 'Y' in ks: ks.remove('Y') #update ks
+    if 'Y' not in vcf_vcam and 'Y' in rs: rs.remove('Y') #update rs
+    if 'Y' not in vcf_vcam and 'Y' in S: S.pop('Y')
+    print('checking VCF call conflicts')
+    vcf_vcam = vu.vcam_remove_conflicts(vcf_vcam)
+    print('variantion is present on: %s'%list(vcf_vcam.keys()))
+
 print('ks = %s rs = %s at germline_genome start'%(ks,rs))
 sample,vcam,g_loss,g_gain,g_rate = sim.germline_genome(ref_path,out_dir,rs,ks,germline_var_map,loss_wcu,gain_wcu,
                                                        gene_map,gen_method=method,gz=gz,small_cut=small_cut,seed=seed)
@@ -342,6 +361,12 @@ if prior_vcf is not None: #via FusorSV_VCF file
     vcam[2] = vcf_vcam
     vcam = vu.alter_lvcam_genotypes(vcam,h=0.25) #for now assumes no ploidy 1
     sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,vcf_sample,out_dir,rs,gene_map)
+
+if g1k_sample is not None:
+    print('hybrid %s-L1:MNV + %s-L2:SV + %s-L3:MNV'%(sample,g1k_sample,sample))
+    if 2 in vcam: vcam.pop(2)
+    vcam[2] = vcf_vcam
+    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,g1k_sample,out_dir,rs,gene_map)
 
 #default weighted class units for somatic regions that include onco genes and nhej pathways...
 somatic_var_map = vu.read_json_mut_map(out_dir+'/meta/s_var_map.json')
