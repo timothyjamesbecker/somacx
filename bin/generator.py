@@ -363,15 +363,15 @@ if prior_vcf is not None: #via FusorSV_VCF file
     if 2 in vcam: vcam.pop(2)
     vcam[2] = vcf_vcam
     vcam = vu.alter_lvcam_genotypes(vcam,h=0.25) #for now assumes no ploidy 1
-    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,vcf_sample,out_dir,rs,gene_map,
-                                                                  gz=gz,write_snv_indel=write_snv_indel,small_cut=small_cut)
+    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,vcf_sample,out_dir,
+                                                                  write_snv_indel=write_snv_indel,small_cut=small_cut,gz=gz)
 
 if g1k_sample is not None:
     print('hybrid %s-L1:MNV + %s-L2:SV + %s-L3:MNV'%(sample,g1k_sample,sample))
     if 2 in vcam: vcam.pop(2)
     vcam[2] = vcf_vcam
-    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,g1k_sample,out_dir,rs,gene_map,
-                                                                  gz=gz,write_snv_indel=write_snv_indel,small_cut=small_cut)
+    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,g1k_sample,out_dir,
+                                                                  write_snv_indel=write_snv_indel,small_cut=small_cut,gz=gz)
 
 #default weighted class units for somatic regions that include onco genes and nhej pathways...
 somatic_var_map = vu.read_json_mut_map(out_dir+'/meta/s_var_map.json')

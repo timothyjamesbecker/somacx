@@ -425,7 +425,7 @@ def wcu_enrichment(M, loss_wcu, gain_wcu, gene_map):
             gain[k][c] = vu.prop_class_mut_pos({k: M[k]}, {k: gain_wcu[k][c]}, gene_map)
     return loss, gain
 
-def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
+def write_genome_from_vcam(ref_path,vcam,sample,out_dir,
                            write_snv_indel=False,small_cut=50,gz=True):
     if gz: ext_pat,idx_pat = '.fa.gz','i'
     else:  ext_pat,idx_pat = '.fa','.fai'
@@ -521,8 +521,8 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
         vu.wcu_to_bedgraph(gain_wcu, out_dir + '/%s_gain.bedgraph' % sample, sign=1.0)
     else:
         print('saving SNV/MNV,INDEL and large SVs to VCF')
-        snv_indel_vcam = vu.vcam_union(vcam[1], vcam[3])
-        final_vcam = vu.vcam_union(vcam[2], snv_indel_vcam)
+        snv_indel_vcam = vu.vcam_union(vcam[1],vcam[3])
+        final_vcam = vu.vcam_union(vcam[2],snv_indel_vcam)
         final_vca = vu.merge_filter_sort_vcam(final_vcam, {}, small_cut=0)
         vu.write_vcf([sample], final_vca, seqs, ref_path, vcf_out_path)
         vu.wcu_to_bedgraph(loss_wcu, out_dir + '/%s_loss.bedgraph' % sample, sign=-1.0)
