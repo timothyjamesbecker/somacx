@@ -272,7 +272,9 @@ else:                          small_cut    = 0
 if small_cut <=0:          write_snv_indel  = True
 else:                      write_snv_indel  = False
 if args.seed is not None:            seed   = args.seed
-else:                                seed   = None
+else:                                seed   = np.random.get_state()[1][0]
+np.random.seed(seed)
+print('-_-_- using random seed=%s -_-_-'%seed)
 #if a user puts in any clone tree params, this will overide the full.json file
 clone_tree_params = None
 if args.model is not None or args.branch is not None or \
@@ -341,7 +343,6 @@ if prior_vcf is not None: #via FusorSV_VCF file
 if g1k_sample is not None: #via built in vcf
     vcf_path = vu.get_local_path()+'grch38.all.geno.vcf.gz'
     print('loading g1k vcf file:%s'%vcf_path)
-    if seed is not None: np.random.seed(seed)
     if g1k_sample=='random': g1k_sample = vu.pick_random_g1kp3_sample(vcf_path)
     vcf_vcam = vu.all_g1kp3_vcf_to_vcam(vcf_path,ref_path,sample=g1k_sample,seqs=list(S.keys()))
     print('using sample=%s'%g1k_sample)
