@@ -426,7 +426,7 @@ def wcu_enrichment(M, loss_wcu, gain_wcu, gene_map):
     return loss, gain
 
 def write_genome_from_vcam(ref_path,vcam,sample,out_dir,rs,gene_map,
-                           write_snv_indel=True,small_cut=50,gz=True):
+                           write_snv_indel=False,small_cut=50,gz=True):
     if gz: ext_pat,idx_pat = '.fa.gz','i'
     else:  ext_pat,idx_pat = '.fa','.fai'
     fa_out_path    = out_dir+'/'+sample+ext_pat
