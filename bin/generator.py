@@ -274,7 +274,7 @@ else:                      write_snv_indel  = False
 if args.seed is not None:            seed   = args.seed
 else:                                seed   = np.random.get_state()[1][0]
 np.random.seed(seed)
-print('-_-_- using random seed=%s -_-_-'%seed)
+print('<<< RANDOM_SEED= %s >>>'%seed)
 #if a user puts in any clone tree params, this will overide the full.json file
 clone_tree_params = None
 if args.model is not None or args.branch is not None or \
