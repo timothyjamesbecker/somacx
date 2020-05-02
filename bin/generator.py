@@ -269,6 +269,8 @@ if len(cov)>0 and len(cov)<=1:       cov    = cov[0]
 else:                                cov    = np.random.choice(np.arange(cov[0],cov[1],(cov[1]-cov[0])/10.0),1)[0]
 if args.small_cut is not None: small_cut    = args.small_cut
 else:                          small_cut    = 0
+if small_cut <=0:          write_snv_indel  = True
+else:                      write_snv_indel  = False
 if args.seed is not None:            seed   = args.seed
 else:                                seed   = None
 #if a user puts in any clone tree params, this will overide the full.json file
@@ -352,7 +354,8 @@ if g1k_sample is not None: #via built in vcf
 
 print('ks = %s rs = %s at germline_genome start'%(ks,rs))
 sample,vcam,g_loss,g_gain,g_rate = sim.germline_genome(ref_path,out_dir,rs,ks,germline_var_map,loss_wcu,gain_wcu,
-                                                       gene_map,gen_method=method,gz=gz,small_cut=small_cut,seed=seed)
+                                                       gene_map,gen_method=method,gz=gz,write_snv_indel=write_snv_indel,
+                                                       small_cut=small_cut,seed=seed)
 
 if prior_vcf is not None: #via FusorSV_VCF file
     vcf_sample = prior_vcf.split('/')[-1].split('_')[0]
@@ -360,13 +363,15 @@ if prior_vcf is not None: #via FusorSV_VCF file
     if 2 in vcam: vcam.pop(2)
     vcam[2] = vcf_vcam
     vcam = vu.alter_lvcam_genotypes(vcam,h=0.25) #for now assumes no ploidy 1
-    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,vcf_sample,out_dir,rs,gene_map)
+    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,vcf_sample,out_dir,rs,gene_map,
+                                                                  gz=gz,write_snv_indel=write_snv_indel,small_cut=small_cut)
 
 if g1k_sample is not None:
     print('hybrid %s-L1:MNV + %s-L2:SV + %s-L3:MNV'%(sample,g1k_sample,sample))
     if 2 in vcam: vcam.pop(2)
     vcam[2] = vcf_vcam
-    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,g1k_sample,out_dir,rs,gene_map)
+    sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,g1k_sample,out_dir,rs,gene_map,
+                                                                  gz=gz,write_snv_indel=write_snv_indel,small_cut=small_cut)
 
 #default weighted class units for somatic regions that include onco genes and nhej pathways...
 somatic_var_map = vu.read_json_mut_map(out_dir+'/meta/s_var_map.json')
@@ -400,6 +405,7 @@ CT,M,T,s_vcam,s_loss,s_gain,s_rate,s_over = sim.somatic_genomes(ref_path,out_dir
                                                                 clone_tree_path=clone_tree_path,
                                                                 clone_tree_params=clone_tree_params,
                                                                 aneuploidy=aneuploidy,
+                                                                write_snv_indel=write_snv_indel,
                                                                 small_cut=small_cut,seed=seed)
 # print('germline generation enrichment targets:')
 # sim.display_rlg(ks,g_rate,g_loss,g_gain)
