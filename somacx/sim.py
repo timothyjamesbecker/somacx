@@ -468,19 +468,19 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,
                 for vc in vcam[l][k]:
                     svtype = vu.get_info_type(vc.info)
                     svlen  = vu.get_info_len(vc.info)
-                    svgen  = vu.get_genotype(vc.frmat,0)
+                    svgen  = vu.get_genotype(vc.frmat,index=0)
                     if svtype=='DEL':
                         if svgen[0]==1:                  x[0] -= svlen-1
                         if len(svgen)>1 and svgen[1]==1: x[1] -= svlen-1
                     elif svtype=='DUP':
-                        if svgen[0]==1:                  x[0] += (vu.get_dup(vc.info)['CN']/4)*svlen-1
-                        if len(svgen)>1 and svgen[1]==1: x[1] += (vu.get_dup(vc.info)['CN']/4)*svlen-1
+                        if svgen[0]==1:                  x[0] += (vu.get_dup(vc.info)['CN']//4)*svlen-1
+                        if len(svgen)>1 and svgen[1]==1: x[1] += (vu.get_dup(vc.info)['CN']//4)*svlen-1
                     elif svtype=='INS':
                         if svgen[0]==1:                  x[0] += len(vc.alt)
                         if len(svgen)>1 and svgen[1]==1: x[1] += len(vc.alt)
                     F[svtype] += [svlen]
                 for f in F: print('L2:applied %s %s of mean-len=%s for SVs to seq %s'%\
-                                  (len(F[f]),f, (0 if len(F[f])<1 else np.mean(F[f])), k))
+                                  (len(F[f]),f,(0 if len(F[f])<1 else np.mean(F[f])),k))
                 y = [0,0]
                 print('L2:SV editing mut1, mut2 strings for chrom %s'%k)
                 sv1 = vu.apply_var_calls(mut1,vcam[l][k],g=0)

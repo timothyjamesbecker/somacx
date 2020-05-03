@@ -729,7 +729,6 @@ def all_g1kp3_vcf_to_vcam(vcf_path,ref_path,sample,seqs,types=['INS','DEL','DUP'
                         if cdx not in M:   #no duplicate entries
                             if (not row[info_i].startswith('END=')) and row[info_i].find(';END=')<0:     row[info_i] += ';END=%s'%end
                             if (not row[info_i].startswith('SVLEN=')) and row[info_i].find(';SVLEN=')<0: row[info_i] += ';SVLEN=%s'%(end-start)
-                            row[info_i] = row[info_i].replace(';;',';')
                             vc = VariantCall(chrom=row[0],pos=start,identifier=row[2],ref=row[3],
                                              alt=row[alt_i],qual=row[5],flter=row[6],info=row[info_i],frmat=gn)
                             if vc.chrom in S: S[vc.chrom] += [vc]
@@ -771,6 +770,7 @@ def all_g1kp3_vcf_to_vcam(vcf_path,ref_path,sample,seqs,types=['INS','DEL','DUP'
                 S[k][i].alt = utils.get_reverse_complement(S[k][i].ref)
             if svtype == 'INS':
                 S[k][i].info = set_info_len(S[k][i].info,get_info_len(S[k][i].info)+0)
+            S[k][i].info = S[k][i].info.replace(';;',';')
     if 'Y' in S and 'X' in S:
         for i in range(len(S['Y'])):
             S['Y'][i].frmat = '1'
@@ -953,19 +953,22 @@ def vcam_remove_conflicts(vcam):
                 else:      C[j]  = set([i])
         R = set([])
         cs = list(C.keys())
-        for i in cs:
-            if i in C:
-                fwd,rev = 0,0
-                for j in C[i]:
-                    if j in C: #can be removed
-                        if F[get_info_type(vcam[k][i].info)] >= F[get_info_type(vcam[k][j].info)]:
-                            fwd += len(C[i].difference(C[j]))
-                        if F[get_info_type(vcam[k][i].info)] <= F[get_info_type(vcam[k][j].info)]:
-                            rev += len(C[j].difference(C[i]))
-            if fwd >= rev and len(C[i])>0:
-                R.add(i)
-                for j in C[i]: C[j] = C[j].difference(set([i]))
-                C.pop(i)
+        while(len(cs))>0:
+            for i in cs:
+                if i in C:
+                    fwd,rev = 0,0
+                    for j in C[i]:
+                        if j in C: #can be removed
+                            if F[get_info_type(vcam[k][i].info)] >= F[get_info_type(vcam[k][j].info)]:
+                                fwd += len(C[i].difference(C[j]))
+                            if F[get_info_type(vcam[k][i].info)] <= F[get_info_type(vcam[k][j].info)]:
+                                rev += len(C[j].difference(C[i]))
+                if fwd >= rev and len(C[i])>0:
+                    R.add(i)
+                    for j in C[i]: C[j] = C[j].difference(set([i]))
+                    C.pop(i)
+                if i in C and len(C[i])<=0: C.pop(i)
+            cs = list(C.keys())
         print('removing %s VCF call conflicts for seq %s'%(len(R),k))
         vca = []
         for i in range(len(vcam[k])):

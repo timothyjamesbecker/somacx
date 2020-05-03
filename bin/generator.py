@@ -274,7 +274,7 @@ else:                      write_snv_indel  = False
 if args.seed is not None:            seed   = args.seed
 else:                                seed   = np.random.get_state()[1][0]
 np.random.seed(seed)
-print('<<< RANDOM_SEED= %s >>>'%seed)
+print('<<<RANDOM_SEED= %s >>>'%seed)
 #if a user puts in any clone tree params, this will overide the full.json file
 clone_tree_params = None
 if args.model is not None or args.branch is not None or \
@@ -371,6 +371,7 @@ if g1k_sample is not None:
     print('hybrid %s-L1:MNV + %s-L2:SV + %s-L3:MNV'%(sample,g1k_sample,sample))
     if 2 in vcam: vcam.pop(2)
     vcam[2] = vcf_vcam
+    sample = g1k_sample
     sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,g1k_sample,out_dir,
                                                                   write_snv_indel=write_snv_indel,small_cut=small_cut,gz=gz)
 
