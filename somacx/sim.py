@@ -826,24 +826,25 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
 
     #nhej => small DEL increase------------------------------------------------------------------------
     loss,gain = wcu_enrichment(M,loss_wcu,gain_wcu,gene_map)
-    losses = []
-    for k in loss:
-        losses += [[0,0]] #total proportion of effected genes
-        for t in ['INV','INS','TRA','DEL']:
-            for j in ['mmej','nhej']:
-                if j in loss[k]:
-                    if t in loss[k][j][k]:
-                        losses[-1][0] += loss[k][j][k][t][0]
-                        losses[-1][1]  = loss[k][j][k][t][1]
-        losses[-1][0] = min(losses[-1][0],losses[-1][1])
-    loss_prop   = sum([l[0] for l in losses])
-    loss_denom  = sum([l[1] for l in losses])
+    losses = {'mmej':[],'nhej':[]}
+    for j in ['mmej','nhej']:
+        for k in loss:
+            losses[j] += [[0,0]] #total proportion of effected genes
+            for t in ['INV','INS','TRA','DEL']:
+                    if j in loss[k]:
+                        if t in loss[k][j][k]:
+                            losses[j][-1][0] += loss[k][j][k][t][0]
+                            losses[j][-1][1]  = loss[k][j][k][t][1]
+            losses[j][-1][0] = min(losses[j][-1][0],losses[j][-1][1])
+
+    loss_prop   = sum([sum([i[0] for i in losses[j]]) for j in losses])
+    loss_denom  = sum([sum([i[1] for i in losses[j]]) for j in losses])
     if loss_denom>0.0: loss_prop /= (1.0*loss_denom)
-    if loss_prop>0.0: print('end joining is impaired for somatic tissues with proportion=%s'%loss_prop)
-    ej_x,germ_M = {},vu.vcam_to_pos_map(vcam[2])
+    if loss_prop>0.0: print('<<EJ>> end joining is impaired for somatic tissues with proportion=%s <<EJ>>'%loss_prop)
+    else:             print('<<EJ>> no end joining impairments for somatic tissues given proportion=%s <<EJ>>'%loss_prop)
+    ej_del,ej_inv,germ_M = {},{},vu.vcam_to_pos_map(vcam[2])
     for k in gs:
         if loss_prop>0.0:
-            print('end joining impairments yeilded %s additional small DEL events'%sum([ej_x[k] for k in ej_x]))
             rngs = []
             if k in M:
                 for t in M[k]: rngs += utils.merge_1D(M[k][t])
@@ -856,17 +857,29 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                     open_pos   = utils.LRF_1D(rngs,[[rngs[0][0],rngs[-1][1]]])[-1] #inner ranges
                     ej_loss    = {k:vu.pos_to_wcu(open_pos,w=50*loss_prop,label='ej_loss')}
                     l_pos,l_w  = vu.wcu_to_pos_w(ej_loss,len(seqs[k]))
-                    ej_class_p = {'DEL':copy.deepcopy([l_pos,l_w])} #increased DEL
-                    ej_mut_p   = {2:{'DEL':{'l:n':{10.0:(1e-6)*loss_prop,50.0:(6e-7)*loss_prop},'h':0.9}}}
-                    ej_M       = vu.gen_class_mut_pos_map(seqs[k],ej_class_p,ej_mut_p,l=2,
-                                                          size_prop=1.0,center=gen_center,germ=False,verbose=False)
+                    ej_class_p = {'DEL':copy.deepcopy([l_pos,l_w])}#,'INV':copy.deepcopy(([l_pos,l_w]))} #increased DEL
+                    ej_mut_p   = {2:{'DEL':{'l:n':{10.0:(3e-6)*loss_prop,50.0:(2e-6)*loss_prop},'h':0.9},
+                                     'INV': {'s:p':{100.0:[4,0.5,0.5],50.0:[8,0.2,0.3],25.0:[10,0.4,0.5]},
+                                             'TYPE':['PERFECT','COMPLEX'],'TP':[0.2,0.8],'h':0.9,
+                                             'l:n':{500.0:(2e-6)*loss_prop,1000.0:(8e-7)*loss_prop,10000.0:(5e-7)*loss_prop}}}}
+                    if gen_method=='fast':
+                        ej_M = vu.gen_class_mut_pos_map(seqs[k],ej_class_p,ej_mut_p,l=2,size_prop=2.0,germ=False,center=gen_center)
+                    else:
+                        ej_M = vu.gen_class_mut_pos_map_slow(seqs[k],ej_class_p,ej_mut_p,l=2,size_prop=2.0,center=gen_center)
                     if 'DEL' in ej_M:
-                        ej_x[k] = len(ej_M['DEL'])
+                        ej_del[k] = len(ej_M['DEL'])
                         if k in M:
                             if 'DEL' in M[k]: M[k]['DEL'] = sorted(M[k]['DEL']+ej_M['DEL'],key=lambda x: x[0])
                             else:             M[k]['DEL'] = sorted(ej_M['DEL'],key=lambda x: x[0])
                         else:
                             M[k] = {'DEL':sorted(ej_M['DEL'],key=lambda x: x[0])}
+                    if 'INV' in ej_M:
+                        ej_inv[k] = len(ej_M['INV'])
+                        if k in M:
+                            if 'INV' in M[k]: M[k]['INV'] = sorted(M[k]['INV']+ej_M['INV'],key=lambda x: x[0])
+                            else:             M[k]['INV'] = sorted(ej_M['INV'],key=lambda x: x[0])
+                        else:
+                            M[k] = {'INV':sorted(ej_M['INV'],key=lambda x: x[0])}
     old_pos_map,over = {},{}
 
     # correct areas of gain for onco genes------------------------------------
@@ -952,9 +965,9 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                 allele_map = vu.gen_clone_allele_map(part_map,CT)
                 del_vca = vu.gen_var_calls(seqs,k,'DEL',M[k]['DEL'],G[k]['DEL'],
                                            allele_map=allele_map,ref_path=ref_path)  # del_pos
-                if loss_prop>0.0:
+                if loss_prop>0.0 and k in ej_del:
                     print('L2:applied %s DEL mean-len=%s SVs to seq %s (%s due to end joining losses)' % \
-                          (len(del_vca),vu.get_mean_size(M[k]['DEL']),k,round(ej_x[k]/(1.0*len(M[k]['DEL'])),2)))
+                          (len(del_vca),vu.get_mean_size(M[k]['DEL']),k,round(ej_del[k]/(1.0*len(M[k]['DEL'])),2)))
                 else:
                     print('L2:applied %s DEL mean-len=%s SVs to seq %s' % \
                           (len(del_vca), vu.get_mean_size(M[k]['DEL']), k))
@@ -982,8 +995,11 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
                                }
                 inv_vca = vu.gen_var_calls(seqs,k,inv_params,M[k]['INV'],G[k]['INV'],
                                            allele_map=allele_map,ref_path=ref_path)  # inv pos
-                print('L2:applied %s INV mean-len=%s SVs to seq %s' % \
-                      (len(inv_vca), vu.get_mean_size(M[k]['INV']), k))
+                if loss_prop>0.0 and k in ej_inv:
+                    print('L2:applied %s INV mean-len=%s SVs to seq %s (%s due to end joining losses)' % \
+                          (len(del_vca),vu.get_mean_size(M[k]['INV']),k,round(ej_inv[k]/(1.0*len(M[k]['INV'])),2)))
+                else: print('L2:applied %s INV mean-len=%s SVs to seq %s' % \
+                            (len(inv_vca), vu.get_mean_size(M[k]['INV']), k))
                 complex_pos = vu.get_complex_inv_pos(inv_vca)
                 if len(complex_pos)>0:
                     dup_params = {'DUP': {'CN': [2, 3], 'TYPE': ['TANDEM']}}

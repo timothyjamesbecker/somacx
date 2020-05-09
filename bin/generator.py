@@ -67,7 +67,7 @@ def update_gene_list(genes,weights,label,verbose=False):
             vu.write_json_wcu(out_dir+'/meta/'+jsons[g]%label,wcu)
     return True
 
-def update_all_gene_lists(apot_w=5E1,g1kp3_w=2E1,mitcp_w=1E2,mmej_w=1E2,nhej_w=5E1,onco_w=1E2):
+def update_all_gene_lists(apot_w=5E1,g1kp3_w=2E1,mitcp_w=1E2,mmej_w=100E2,nhej_w=100E2,onco_w=1E2):
     apot_genes = vu.read_gene_list(vu.get_local_path('apotosis_thermofisher_gene_list.txt'))
     apot_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':0.0, 'somatic_loss':apot_w}
     update_gene_list(apot_genes,apot_weights,label='apot')
@@ -88,7 +88,7 @@ def update_all_gene_lists(apot_w=5E1,g1kp3_w=2E1,mitcp_w=1E2,mmej_w=1E2,nhej_w=5
     nhej_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':0.0, 'somatic_loss':nhej_w}
     update_gene_list(nhej_genes,nhej_weights,label='nhej')
 
-    onco_genes = vu.read_gene_list(vu.get_local_path('mmej_sharma_gene_list.txt'))
+    onco_genes = vu.read_gene_list(vu.get_local_path('onco_bushman_gene_list.txt'))
     onco_weights = {'germline_gain':0.0,'germline_loss':0.0,'somatic_gain':onco_w, 'somatic_loss':0.0}
     update_gene_list(onco_genes,onco_weights,label='onco')
 
@@ -244,7 +244,7 @@ elif args.complex_generator_json is not None:
 else:
     full_json = None
 if args.method is not None:          method = args.method
-else:                                method = 'slow'
+else:                                method = 'fast'
 if args.uncomp:                      gz     = False
 else:                                gz     = True
 if args.single:                      clean  = False

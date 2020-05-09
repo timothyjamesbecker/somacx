@@ -1191,8 +1191,8 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,size_dist='uniform',
                 start_pos = utils.weighted_random(s_class_p[0],s_class_p[1],r*y,seed=seed)
                 if center:
                     if size_dist == 'triangular':
-                        start_pos = [[max(0,i-int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))//2),
-                                      min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s), 0))//2)] for i in start_pos]
+                        start_pos = [[max(0,i-int(round(np.random.triangular(0.5001*s,s,1.5*s),0))//2),
+                                      min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s),0))//2)] for i in start_pos]
                     elif size_dist == 'uniform':
                         start_pos = [[max(0,i-int(round(np.random.uniform(0.5001*s,1.5*s),0))//2),
                                       min(n,i+int(round(np.random.uniform(0.5001*s,1.5*s),0))//2)] for i in start_pos]
@@ -1202,15 +1202,15 @@ def gen_class_mut_pos_map_slow(ref_seq,class_p,mut_p,l,y=10,size_dist='uniform',
                     elif size_dist=='uniform':
                         start_pos=[[max(0,i),min(n,i+int(round(np.random.uniform(0.5001*s,1.5*s),0)))] for i in start_pos]
             else: #default will be uniform over the full range
-                start_pos=np.array(np.random.uniform(0,n-s,r*y),dtype=int)
+                start_pos=np.array(np.random.uniform(0,n-s,int(round(r*y))),dtype=int)
                 if size_dist=='triangular':
                     start_pos=[[i,min(n,i+int(round(np.random.triangular(0.5001*s,s,1.5*s),0)))] for i in start_pos]
                 elif size_dist=='uniform':
-                    start_pos=[[i,min(n,i+int(round(np.random.uniform(0.5001*s,s,1.5*s),0)))] for i in start_pos]
+                    start_pos=[[i,min(n,i+int(round(np.random.uniform(0.5001*s,1.5*s),0)))] for i in start_pos]
 
             F[t][s],R[(t,s)] = {'r':r,'pos':start_pos},[]      #y*r requested are generated
             F['requested'],F['remaining'] = F['requested']+r,F['remaining']+len(start_pos)
-    for t in mut_p[l]: #probabilties for smaple from each distribution are maintained
+    for t in mut_p[l]: #probabilties for sampling from each distribution are maintained
         for s in mut_p[l][t]['l:n']:
             if F['requested']>0: P[(t,s)] = F[t][s]['r']/F['requested']
 
