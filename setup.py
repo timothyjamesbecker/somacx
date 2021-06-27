@@ -48,5 +48,6 @@ setup(
     ext_modules=extensions,
     packages=['somacx'],
     package_data={'somacx': ['data/*.json', 'data/*.json.gz','data/*.txt', 'data/*.txt.gz',
-                              'data/*.bed', 'data/*.bed.gz','data/*.vcf','data/*.vcf.gz','data/art_profiles/*.txt']},
+                              'data/*.bed', 'data/*.bed.gz','data/*.vcf','data/*.vcf.gz','data/art_profiles/*.txt',
+                             'data/refGene.hg19.gz','data/refGene.hg38.gz','data/refGene.mm10.gz']},
     scripts=['bin/generator.py','bin/fastq_sample.py'])

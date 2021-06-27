@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import os
 import glob
+import copy
 import argparse
+import numpy as np
 import variant_utils as vu
 import utils as utils
 
@@ -247,9 +249,17 @@ def vcf_to_gene_intersect(vcf1,gene_list,gene_map,filter_size=[50,int(1E9)],labe
             return True
         return False
 
+def lods(C1,C2):
+    if C1[1]>0.0: n = np.log1p(C1[0]/C1[1])
+    else:         n = 0.0
+    if C2[1]>0.0: d = np.log1p(C2[0]/C2[1])
+    if d>0.0:     x = n/d
+    else:         x = 0.0
+    return x
+
 des = """
-Variant Gene Effects - Compute the effected gene lists for normal versus tumor samples
-Timothy James Becker, PhD candidate, UCONN 06/19/2018-05/01/2019\n"""
+Variant Gene Effects - Compute the effected gene lists for normal versus tumor samples and correlate with RNA-seq expression
+Timothy James Becker, PhD candidate, UCONN 06/19/2018-06/26/2021\n"""
 parser = argparse.ArgumentParser(description=des,formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('-i', '--in_dir',type=str, help='vcf input folder\t[None]')
 parser.add_argument('-o', '--out_dir',type=str, help='analysis output folder\t[None]')
@@ -265,14 +275,26 @@ if not os.path.exists(out_dir+'/meta/gene_map.json'):
     gene_map = vu.build_ucsc_gene_exon_map(vu.get_local_path('refGene.hg19.gz'))
     vu.write_json_gene_map(out_dir+'/meta/gene_map.json',gene_map)
     print('completed building a python serialized pickle and a json gene map')
-gene_map = vu.read_json_gene_map(out_dir+'/meta/gene_map.json')
+old_gene_map = gene_map     = vu.read_json_gene_map(out_dir+'/meta/gene_map.json')
+# old_gene_map = vu.build_ucsc_gene_exon_map(vu.get_local_path('refGene.hg19.gz'))
+new_gene_map = vu.build_ucsc_gene_exon_map(vu.get_local_path('refGene.hg38.gz'))
+
+if os.path.exists(out_dir+'/meta/gain.rna.tsv'):
+    with open(out_dir+'/meta/gain.rna.tsv','r') as f:
+        rna_gain_gl = [row.replace('\n','').replace('"','') for row in f.readlines()]
+else: rna_gain_gl = []
+
+if os.path.exists(out_dir+'/meta/loss.rna.tsv'):
+    with open(out_dir+'/meta/loss.rna.tsv','r') as f:
+        rna_loss_gl = [row.replace('\n','').replace('"','') for row in f.readlines()]
+else: rna_loss_gl = []
 
 onco_gl  = vu.read_gene_list(vu.get_local_path('onco_bushman_gene_list.txt'))
 mmej_gl  = vu.read_gene_list(vu.get_local_path('mmej_sharma_gene_list.txt'))
 nhej_gl  = vu.read_gene_list(vu.get_local_path('nhej_davis_gene_list.txt'))
 apot_gl  = vu.read_gene_list(vu.get_local_path('apotosis_thermofisher_gene_list.txt'))
 mitcp_gl = vu.read_gene_list(vu.get_local_path('mitcp_giam_gene_list.txt'))
-g1kp3_gl = vu.read_gene_list(vu.get_local_path('g1kp3_filtered_gene_list.txt'))
+g1kp3_gl = vu.read_gene_list(vu.get_local_path('g1kp3_gene_list.txt'))
 
 onco_wcu  = vu.gene_list_to_wcu(onco_gl,[1.0 for g in onco_gl],gene_map,'onco')
 mmej_wcu  = vu.gene_list_to_wcu(mmej_gl,[1.0 for g in mmej_gl],gene_map,'mmej')
@@ -281,37 +303,161 @@ apot_wcu  = vu.gene_list_to_wcu(apot_gl,[1.0 for g in apot_gl],gene_map,'apot')
 mitcp_wcu = vu.gene_list_to_wcu(mitcp_gl,[1.0 for g in mitcp_gl],gene_map,'mitcp')
 g1kp3_wcu = vu.gene_list_to_wcu(g1kp3_gl,[1.0 for g in g1kp3_gl],gene_map,'g1kp3')
 
-
-GS = {}
-vcf_glob = glob.glob('/media/data/tcrboa_validated/SMX*S_S-1.vcf')
+BS,SS,RNA = {},{},{}
+vcf_glob = glob.glob(in_dir+'/*_S51.vcf')
 # for vcf_path in sorted(vcf_glob,key=lambda x: int(x.rsplit('_F')[-1].rsplit('n')[0])):
-for vcf_path in vcf_glob:
-    print('starting analysis of %s'%vcf_path)
-    vcf_wcu  = vu.vcf_to_wcu(vcf_path,w=1.0,label=None)
-    gain,loss,total = vu.g1kp3_to_gene_list(vcf_path,gene_map,filter=[0.0,1.0,True])
-    G,L,T = {'onco':[],'mmej':[],'nhej':[],'apot':[],'mitcp':[],'g1kp3':[]},\
-            {'onco':[],'mmej':[],'nhej':[],'apot':[],'mitcp':[],'g1kp3':[]},\
-            {'onco':[],'mmej':[],'nhej':[],'apot':[],'mitcp':[],'g1kp3':[]}
-    A = {'onco':onco_gl,'mmej':mmej_gl,'nhej':nhej_gl,'apot':apot_gl,'mitcp':[],'g1kp3':g1kp3_gl}
+for vcf_path in sorted(vcf_glob):
+    sm = vcf_path.rsplit('/')[-1].rsplit('.vcf')[0]
+    RNA[sm] = {}
+    print('starting analysis of %s'%sm)
+    if vcf_path.endswith('B_S51.vcf'): gene_map = new_gene_map
+    else:                              gene_map = old_gene_map
+    gain,loss,other = vu.g1kp3_to_gene_list(vcf_path,gene_map,filter=[0.0,1.0,True])
+    G,L,O = {'onco':[],'mmej':[],'nhej':[],'apot':[],'mitcp':[],'g1kp3':[],'genes':[]},\
+            {'onco':[],'mmej':[],'nhej':[],'apot':[],'mitcp':[],'g1kp3':[],'genes':[]},\
+            {'onco':[],'mmej':[],'nhej':[],'apot':[],'mitcp':[],'g1kp3':[],'genes':[]}
+    A = {'onco':onco_gl,'mmej':mmej_gl,'nhej':nhej_gl,'apot':apot_gl,'mitcp':mitcp_gl,
+         'g1kp3':g1kp3_gl,'genes':sorted(gene_map['gene'].keys())}
+    E = {}
     for a in A:
         for i in gain:
             if i in A[a]: G[a] += [i]
         for i in loss:
             if i in A[a]: L[a] += [i]
-        for i in total:
-            if i in A[a]: T[a] += [i]
-    print('TOTAL : DEL,DUP,INV genes-----------------------------------------------------------')
-    for t in T:
-        prop = 0.0
-        if len(A[t])>0: prop = 1.0*len(T[t])/len(A[t])
-        print('%s/%s genes in %s (%s)'%(len(T[t]),len(A[t]),t,prop))
-    prop = 0.0
-    if len(T['g1kp3'])>0: prop = 1.0*len(T['onco'])/len(T['g1kp3'])
-    print('onco prop to g1kp3 prop = %s'%prop)
-    print('FROM %s VCF calls-------------------------------------------------------------------'%\
-          sum([len(vcf_wcu[k]) for k in vcf_wcu]))
-    GS[vcf_path.rsplit('/')[-1].rsplit('.vcf')[0]] = T['onco']
+        for i in other:
+            if i in A[a]: O[a] += [i]
+        E[a] = {'gain':[0,len(A[a])],'loss':[0,len(A[a])],'other':[0,len(A[a])]}
+    for t in G:
+        if t not in RNA[sm]: RNA[sm][t] = {}
+        RNA[sm][t]['gain']   = G[t]
+        E[t]['gain'][0]  = len(G[t])
+    for t in L:
+        if t not in RNA[sm]: RNA[t] = {}
+        RNA[sm][t]['loss']   = L[t]
+        E[t]['loss'][0]  = len(L[t])
+    for t in O:
+        if t not in RNA[sm]: RNA[t] = {}
+        RNA[sm][t]['other']  = O[t]
+        E[t]['other'][0] = len(O[t])
+    E['calls'] = {'gain':[len(gain)],'loss':[len(loss)],'other':[len(other)]}
+    if vcf_path.endswith('B_S51.vcf'): BS[sm] = E
+    else:                              SS[sm] = E
 
+#add up the background n21 and n22 counts...
+B = {}
+for sm in BS:
+    for gl in sorted(list(set(BS[sm]).difference(set(['calls','genes'])))):
+        if gl not in B:
+            B[gl] = {'gain':  np.asarray([BS[sm][gl]['gain'][0],BS[sm]['calls']['gain'][0]]),
+                     'loss':  np.asarray([BS[sm][gl]['loss'][0],BS[sm]['calls']['loss'][0]]),
+                     'other': np.asarray([BS[sm][gl]['other'][0],BS[sm]['calls']['other'][0]])}
+        else:
+            B[gl]['gain']  += np.asarray([BS[sm][gl]['gain'][0],BS[sm]['calls']['gain'][0]])
+            B[gl]['loss']  += np.asarray([BS[sm][gl]['loss'][0],BS[sm]['calls']['loss'][0]])
+            B[gl]['other'] += np.asarray([BS[sm][gl]['other'][0],BS[sm]['calls']['other'][0]])
 
+#will agregate [1]all samples, [2] all Ts, all Ns, [3] all samples
+S = {'samples':{},'T':{},'N':{},'TN':{}}
+for sm in SS:
+    S['samples'][sm] = {}
+    for gl in sorted(list(set(SS[sm]).difference(set(['calls','genes'])))):
+        S['samples'][sm][gl] = {'gain':  np.asarray([SS[sm][gl]['gain'][0],SS[sm]['calls']['gain'][0]]),
+                                'loss':  np.asarray([SS[sm][gl]['loss'][0],SS[sm]['calls']['loss'][0]]),
+                                'other': np.asarray([SS[sm][gl]['other'][0],SS[sm]['calls']['other'][0]])}
+for sm in S['samples']:
+    for ts in ['T','N']: #do each T and N
+        if sm.find('_%s_'%ts)>=0:
+            for gl in S['samples'][sm]:
+                if gl not in S[ts]:
+                    S[ts][gl] = S['samples'][sm][gl]
+                else:
+                    S[ts][gl]['gain']  += S['samples'][sm][gl]['gain']
+                    S[ts][gl]['loss']  += S['samples'][sm][gl]['loss']
+                    S[ts][gl]['other'] += S['samples'][sm][gl]['other']
+    for gl in S['samples'][sm]: #now for the T,N combination
+        if gl not in S['TN']:
+            S['TN'][gl] = copy.deepcopy(S['samples'][sm][gl])
+        else:
+            S['TN'][gl]['gain']  += S['samples'][sm][gl]['gain']
+            S['TN'][gl]['loss']  += S['samples'][sm][gl]['loss']
+            S['TN'][gl]['other'] += S['samples'][sm][gl]['other']
 
+header = ['class','gene_list','effect','gene_calls','effect_calls','log(class/back)']
+data   = []
+for sm in S['samples']:
+    for gl in S['samples'][sm]:
+        a,b = S['samples'][sm][gl]['gain']
+        c,d = B[gl]['gain']
+        x,y = (a/b if b>0.0 else 0.0),(c/d if d>0.0 else 0.0)
+        log_odds = (np.log(x/y) if x>0.0 and y>0.0 else 0.0)
+        data += [[sm,gl,'gain',a,b,log_odds]]
 
+        a,b = S['samples'][sm][gl]['loss']
+        c,d = B[gl]['loss']
+        x,y = (a/b if b>0.0 else 0.0),(c/d if d>0.0 else 0.0)
+        log_odds = (np.log(x/y) if x>0.0 and y>0.0 else 0.0)
+        data += [[sm,gl,'loss',a,b,log_odds]]
+
+        a,b = S['samples'][sm][gl]['other']
+        c,d = B[gl]['other']
+        x,y = (a/b if b>0.0 else 0.0),(c/d if d>0.0 else 0.0)
+        log_odds = (np.log(x/y) if x>0.0 and y>0.0 else 0.0)
+        data += [[sm,gl,'other',a,b,log_odds]]
+
+for ts in ['T','N','TN']:
+    for gl in S[ts]:
+        a,b = S[ts][gl]['gain']
+        c,d = B[gl]['gain']
+        x,y = (a/b if b>0.0 else 0.0),(c/d if d>0.0 else 0.0)
+        log_odds = (np.log(x/y) if x>0.0 and y>0.0 else 0.0)
+        data += [[ts,gl,'gain',a,b,log_odds]]
+
+        a,b = S[ts][gl]['loss']
+        c,d = B[gl]['loss']
+        x,y = (a/b if b>0.0 else 0.0),(c/d if d>0.0 else 0.0)
+        log_odds = (np.log(x/y) if x>0.0 and y>0.0 else 0.0)
+        data += [[ts,gl,'loss',a,b,log_odds]]
+
+        a,b = S[ts][gl]['other']
+        c,d = B[gl]['other']
+        x,y = (a/b if b>0.0 else 0.0),(c/d if d>0.0 else 0.0)
+        log_odds = (np.log(x/y) if x>0.0 and y>0.0 else 0.0)
+        data += [[ts,gl,'other',a,b,log_odds]]
+
+s = '\t'.join(header)+'\n'
+s += '\n'.join(['\t'.join([str(x) for x in row]) for row in data])
+tsv_path = in_dir+'/gene_effect_analysis.tsv'
+with open(tsv_path,'w') as f: f.write(s)
+
+if len(rna_gain_gl)>0:
+    RB,RS = {},{}
+    for sm in RNA:
+        if sm.endswith('B_S51'):  #background genes
+            for g in RNA[sm]:
+                if g not in RB: RB[g] = RNA[sm][g]
+                else:
+                    for t in RNA[sm][g]: RB[g][t] = set(RB[g][t]).union(set(RNA[sm][g][t]))
+        elif sm=='TCRBOA7_T_S51': #sample 7 that has RNA-seq
+            for g in RNA[sm]:
+                RS[g] = {}
+                for t in RNA[sm][g]:
+                    RS[g][t] = set(RNA[sm][g][t])
+    #now do intersection?
+    J = {}
+    for gl in RS:
+        J[gl] = {'DUP+':set([]),'DUP-':set([]),'DEL+':set([]),'DEL-':set([])}
+        J[gl]['DUP+'] = (RS[gl]['gain'].difference(RB[gl]['gain'])).intersection(rna_gain_gl)
+        J[gl]['DEL-'] = (RS[gl]['loss'].difference(RB[gl]['loss'])).intersection(rna_loss_gl)
+        J[gl]['DUP-'] = (RS[gl]['gain'].difference(RB[gl]['gain'])).intersection(rna_loss_gl)
+        J[gl]['DEL+'] = (RS[gl]['loss'].difference(RB[gl]['loss'])).intersection(rna_gain_gl)
+    s = '\t'.join(['gene_list','gene','SV','RNA'])+'\n'
+    for gl in ['onco','mmej','nhej','apot','mitcp']:
+        for t in J[gl]:
+            for g in sorted(J[gl][t]):
+                if t=='DUP+': sv,rna = 'DUP','+'
+                if t=='DUP-': sv,rna = 'DUP','-'
+                if t=='DEL+': sv,rna = 'DEL','+'
+                if t=='DEL-': sv,rna = 'DEL','-'
+                s += '\t'.join([gl,g,sv,rna])+'\n'
+    print(s)
+    with open(in_dir+'/sv_rna_gene_effect.tsv','w') as f: f.write(s)

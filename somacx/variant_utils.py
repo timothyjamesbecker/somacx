@@ -411,60 +411,106 @@ def read_json_vca(json_path):
 #mainly intended for reading MELT VCF prior formated files
 #to assist with MEI target locations in soMaCX workflows or in defining
 #germline tollerant gene regions such as those published by 1000 genomes consortium
-def vcf_to_wcu(path,delim='\t',skip='#',remove_dup=False,clean_coord=True,w=0.0,label='vcf',filter_size=None):
+def vcf_to_wcu(path,delim='\t',skip='#',remove_dup=False,clean_coord=True,w=0.0,label='vcf',end_sep=True,filter_size=None):
     s,g,l = '',[],{}
     if path.endswith('.gz'):
         with gzip.GzipFile(path,'rb') as f:
-            s = ''.join(f.readlines())
+            s = ''.join([f.decode('UTF-8') for f in f.readlines()])
     elif path.endswith('.vcf'):
         with open(path,'r') as f:
             s = ''.join(f.readlines())
     else: print('incorrect vcf file suffix...')
-    has_end = s.find('END=')>0
-    has_svlen = s.find('SVLEN=')>0
-    has_svtype = s.find('SVTYPE=')>0
-    has_sample = s.find('SAMPLE=')>0
     g = [t.split(delim) if not t.startswith(skip) else None for t in s.split('\n')]
     for i in g:
         if i is not None and len(i)>0 and i[0]!= '':
             if i[0] in l: l[i[0]] += [i]
             else:         l[i[0]]  = [i]
+    if end_sep: es = ';END='
+    else:       es = 'END='
     if label is not None:
-        s,g = '',{}
-        if has_end and has_svtype and has_sample:
-            S = set([])
-            for k in l:
-                g[k] = {label:[]}
-                for i in range(len(l[k])):
+        S,s,g = set([]),'',{}
+        for k in l:
+            g[k] = {label:[]}
+            for i in range(len(l[k])):
+                has_end        = l[k][i][7].find(es)>=0
+                has_svlen      = l[k][i][7].find('SVLEN=')>=0
+                has_svtype     = l[k][i][7].find('SVTYPE=')>=0
+                has_merge_type = l[k][i][7].find('MERGE_TYPE')>=0
+                has_sample     = l[k][i][7].find('SAMPLE=')>=0
+                if has_sample:
                     if l[k][i][2] not in S:
                         S.add(l[k][i][2])
-                        g[k][label] += [[int(l[k][i][1]),int(l[k][i][7].split('END=')[-1].split(';')[0]),
-                                         w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]:\
-                                         set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
-        elif has_svlen and has_svtype:
-            for k in l:
-                g[k] = {label:[]}
-                for i in range(len(l[k])):
-                    g[k][label] += [[int(l[k][i][1]),int(l[k][i][1])+abs(int(l[k][i][7].split('SVLEN=')[-1].split(';')[0])),
-                                     w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]:set([l[k][i][2]])}]]
+                        if has_end and has_svtype:
+                            g[k][label] += [[int(l[k][i][1]),int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                             w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]:\
+                                             set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                        elif has_end and has_merge_type:
+                            g[k][label] += [[int(l[k][i][1]),int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                             w,{l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]:\
+                                             set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                        elif has_svlen and has_svtype:
+                            g[k][label] += [[int(l[k][i][1]),int(l[k][i][1])+int(l[k][i][7].split('SVLEN=')[-1].split(';')[0]),
+                                             w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]:\
+                                             set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                        elif has_svlen and has_merge_type:
+                            g[k][label] += [[int(l[k][i][1]),int(l[k][i][1])+int(l[k][i][7].split('SVLEN=')[-1].split(';')[0]),
+                                             w,{l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]:\
+                                             set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                else:
+                    if has_end and has_svtype:
+                            g[k][label] += [[int(l[k][i][1]),int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                             w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]:set([l[k][i][2]])}]]
+                    elif has_end and has_merge_type:
+                        g[k][label] += [[int(l[k][i][1]),int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                         w,{l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]:set([l[k][i][2]])}]]
+                    elif has_svlen and has_svtype:
+                        g[k][label] += [[int(l[k][i][1]),int(l[k][i][1])+abs(int(l[k][i][7].split('SVLEN=')[-1].split(';')[0])),
+                                         w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]:set([l[k][i][2]])}]]
+                    elif has_svlen and has_merge_type:
+                        g[k][label] += [[int(l[k][i][1]),int(l[k][i][1])+abs(int(l[k][i][7].split('SVLEN=')[-1].split(';')[0])),
+                                         w,{l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]:set([l[k][i][2]])}]]
     else:
-        s, g = '', {}
-        if has_end and has_svtype and has_sample:
-            S = set([])
-            for k in l:
-                g[k] = []
-                for i in range(len(l[k])):
+        S,s,g = set([]),'',{}
+        for k in l:
+            g[k] = []
+            for i in range(len(l[k])):
+                has_end        = l[k][i][7].find(es)>=0
+                has_svlen      = l[k][i][7].find('SVLEN=')>=0
+                has_svtype     = l[k][i][7].find('SVTYPE=')>=0
+                has_merge_type = l[k][i][7].find('MERGE_TYPE')>=0
+                has_sample     = l[k][i][7].find('SAMPLE=')>=0
+                if has_sample:
                     if l[k][i][2] not in S:
                         S.add(l[k][i][2])
-                        g[k] += [[int(l[k][i][1]), int(l[k][i][7].split('END=')[-1].split(';')[0]),
-                                  w, {l[k][i][7].split('SVTYPE=')[-1].split(';')[0]: \
-                                      set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
-        elif has_svlen and has_svtype:
-            for k in l:
-                g[k] = []
-                for i in range(len(l[k])):
-                    g[k] += [[int(l[k][i][1]), int(l[k][i][1]) + abs(int(l[k][i][7].split('SVLEN=')[-1].split(';')[0])),
-                              w, {l[k][i][7].split('SVTYPE=')[-1].split(';')[0]: set([l[k][i][2]])}]]
+                        if has_end and has_svtype:
+                            g[k] += [[int(l[k][i][1]), int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                      w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]: \
+                                         set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                        elif has_end and has_merge_type:
+                            g[k] += [[int(l[k][i][1]), int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                      w,{l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]: \
+                                         set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                        elif has_svlen and has_svtype:
+                            g[k] += [[int(l[k][i][1]),int(l[k][i][1])+int(l[k][i][7].split('SVLEN=')[-1].split(';')[0]),
+                                      w,{l[k][i][7].split('SVTYPE=')[-1].split(';')[0]: \
+                                         set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                        elif has_svlen and has_merge_type:
+                            g[k] += [[int(l[k][i][1]),int(l[k][i][1])+int(l[k][i][7].split('SVLEN=')[-1].split(';')[0]),
+                                      w,{l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]: \
+                                         set([l[k][i][7].split('SAMPLE=')[-1].split(';')[0]])}]]
+                else:
+                    if has_end and has_svtype:
+                            g[k] += [[int(l[k][i][1]), int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                      w, {l[k][i][7].split('SVTYPE=')[-1].split(';')[0]: set([l[k][i][2]])}]]
+                    elif has_end and has_merge_type:
+                        g[k] += [[int(l[k][i][1]), int(l[k][i][7].split(es)[-1].split(';')[0]),
+                                  w, {l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]: set([l[k][i][2]])}]]
+                    elif l[k][i][7].find('SVLEN=')>=0 and l[k][i][7].find('SVTYPE=')>=0:
+                        g[k] += [[int(l[k][i][1]), int(l[k][i][1]) + abs(int(l[k][i][7].split('SVLEN=')[-1].split(';')[0])),
+                                  w, {l[k][i][7].split('SVTYPE=')[-1].split(';')[0]: set([l[k][i][2]])}]]
+                    elif l[k][i][7].find('SVLEN=')>=0 and l[k][i][7].find('MERGE_TYPE=')>=0:
+                        g[k] += [[int(l[k][i][1]), int(l[k][i][1]) + abs(int(l[k][i][7].split('SVLEN=')[-1].split(';')[0])),
+                                  w, {l[k][i][7].split('MERGE_TYPE=')[-1].split(';')[0]: set([l[k][i][2]])}]]
     if clean_coord:
         for k in g:
             if type(g[k]) is list:
@@ -607,7 +653,7 @@ def weight_wcu_by_idx_count(wcu,count_all_classes=True,filter=[5,500,True]):
 #use the pregenerated wcu key in the gene_map
 #to generate a list of genes, aka affected regions
 def wcu_to_gene_list(wcu,gene_map):
-    gain_genes,loss_genes,genes = set([]),set([]),set([])
+    gain_genes,loss_genes,other_genes = set([]),set([]),set([])
     for k in wcu:
         for c in wcu[k]:
             if k in gene_map['wcu']:
@@ -618,12 +664,17 @@ def wcu_to_gene_list(wcu,gene_map):
                         for g in P[i][3]['gene']:
                             if 'DUP' in P[i][3]:   gain_genes.add(g)
                             elif 'DEL' in P[i][3]: loss_genes.add(g)
-                            genes.add(g)
-    return sorted(list(gain_genes)),sorted(list(loss_genes)),sorted(list(genes))
+                            elif 'INV' in P[i][3]: other_genes.add(g)
+    return sorted(list(gain_genes)),sorted(list(loss_genes)),sorted(list(other_genes))
 
 #special g1kp3 VCF format file to gene list tool
-def g1kp3_to_gene_list(path,gene_map,filter=[int((1/50.0)*2500),int((1/2.0)*2500),True],write=None):
+def g1kp3_to_gene_list(path,gene_map,filter=[int((1/50.0)*2500),int((1/2.0)*2500),True],vcf_seq_prefix=None,write=None):
     vcf_wcu = vcf_to_wcu(path)
+    if vcf_seq_prefix is not None:
+        V = {}
+        for k in vcf_wcu:
+            V[vcf_seq_prefix+k] = vcf_wcu[k]
+        vcf_wcu = V
     idx_wcu = weight_wcu_by_idx_count(vcf_wcu,filter=filter)
     gain,loss,total = wcu_to_gene_list(idx_wcu,gene_map)
     if write is not None:
