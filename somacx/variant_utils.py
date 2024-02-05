@@ -1,3 +1,4 @@
+
 #Timothy James Becker, PhD candidate, UCONN 01/10/2017-03/20/2020
 import os
 import sys
@@ -205,7 +206,7 @@ def write_gene_map(path,gene_map):
         return True
     return False
 
-#read a gzip copressed gene map pickle
+#read a gzip compressed gene map pickle
 def read_gene_map(path):
     gene_map = {}
     with gzip.GzipFile(path,'rb') as f:
@@ -2099,6 +2100,19 @@ def gen_clone_allele_map(part_map,CT):
     for clone in clones:   AM[clone] = set(AM[clone])
     return AM
 
+def select_meis(ins,mei):
+    I = []
+    mei_len = {k:len(mei[k]) for k in mei}
+    for i in range(len(ins)):
+        l = abs(ins[i][1]-ins[i][0])
+        x = [max([mei_len[k] for k in mei_len]),None]
+        for k in mei_len:
+            y = abs(mei_len[k]-l)
+            if y<=x[0]: x = [y,k]
+        if l>=mei_len[x[1]]/2: I += [mei[x[1]][:l]]
+        else:                  I += [None]
+    return I
+
 #[2] for each position in the uniform distribution apply the edit
 #    and update the current position (DEL = -L, INS = +L, SUB = 0, INV = 0, DUP = L*CN)
 #    the final result should throw and error or not tabulate the edit
@@ -2180,9 +2194,9 @@ def gen_var_calls(refdict,chrom,mut_type,mut_pos,genotype,tra_map=None,
                 i   += 1
             elif mut_type=='INS':
                 if insert_seqs is not None:
-                    alt = insert_seqs[i] #should be a map from the vcam index to the string
-                else:
-                    alt  = gen_alt_seq(ref)
+                    if insert_seqs[i] is not None: alt = insert_seqs[i] #should be a map from the vcam index to the string
+                    else: alt = gen_alt_seq(ref)
+                else: alt  = gen_alt_seq(ref)
                 ref  = 'N'
                 info = 'SVTYPE=INS;END=%s;SVLEN=%s;'%(pos[0],pos[1]-pos[0])
                 vca += [gen_var_call(chrom,pos[0],ref,alt,info,geno)]
@@ -2216,7 +2230,7 @@ def vcam_to_pos_map(vcam):
     return pos_map
 
 #given a possible empty string = ref and a length = default is 0
-#either produce a new string that has a different random nuclideotide
+#either produce a new string that has a different random nucleotide
 #for use as a substitution generator or just a full random insertion
 def gen_alt_seq(ref,alphabet=['A','C','G','T'],length=0,seed=None):
     if seed is not None: np.random.seed(seed)

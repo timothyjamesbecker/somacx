@@ -136,6 +136,7 @@ def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_pat,
 des = """soMaCX: Generator v0.1.3, 01/01/2017-04/30/2020 Timothy James Becker"""
 parser = argparse.ArgumentParser(description=des)
 parser.add_argument('-r','--ref_path',type=str,help='reference fasta input file\t[None]')
+parser.add_argument('-m','--mei_path',type=str,help='comma-seperated list of mei FASTA\t[None]')
 parser.add_argument('-o','--out_dir',type=str,help='output directory\t[None]')
 parser.add_argument('-c','--chroms',type=str,help='comma seperate chrom list to create large DEL,DUP,INV,INS,TRA on\t[1-22,X,Y,MT]')
 parser.add_argument('-C','--ref_chroms',type=str,help='comma seperate chrom list to create fasta with (should be a superset of -c)\t[1-22,X,Y,MT]')
@@ -166,6 +167,10 @@ if args.ref_path is not None:
 else:
     print('reference fasta was not found')
     raise IOError
+if args.mei_path is not None:
+    mei_path = args.mei_path
+else:
+    mei_path = None
 if args.vcf is not None:
     prior_vcf = args.vcf
     compatible = True
@@ -353,8 +358,9 @@ if g1k_sample is not None: #via built in vcf
     vcf_vcam = vu.vcam_remove_conflicts(vcf_vcam)
     print('variantion is present on: %s'%list(vcf_vcam.keys()))
 
+
 print('ks = %s rs = %s at germline_genome start'%(ks,rs))
-sample,vcam,g_loss,g_gain,g_rate = sim.germline_genome(ref_path,out_dir,rs,ks,germline_var_map,loss_wcu,gain_wcu,
+sample,vcam,g_loss,g_gain,g_rate = sim.germline_genome(ref_path,mei_path,out_dir,rs,ks,germline_var_map,loss_wcu,gain_wcu,
                                                        gene_map,gen_method=method,gz=gz,write_snv_indel=write_snv_indel,
                                                        small_cut=small_cut,seed=seed)
 
@@ -400,7 +406,7 @@ aneuploidy = vu.read_json_aneuploidy(out_dir+ '/meta/somatic_aneuploidy.json')
 mut_p,gs = somatic_var_map,S
 print('starting initialization of somatic clonal tree using params:')
 print('sample=%s clone_tree_params=%s clone_tree_path=%s'%(sample,clone_tree_params,clone_tree_path))
-CT,M,T,s_vcam,s_loss,s_gain,s_rate,s_over = sim.somatic_genomes(ref_path,out_dir,sample,gs,vcam,
+CT,M,T,s_vcam,s_loss,s_gain,s_rate,s_over = sim.somatic_genomes(ref_path,mei_path,out_dir,sample,gs,vcam,
                                                                 somatic_var_map,loss_wcu,gain_wcu,gene_map,
                                                                 gen_method=method,gz=gz,clean=clean,
                                                                 gen_center=center,

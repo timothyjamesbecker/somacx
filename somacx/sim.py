@@ -534,7 +534,7 @@ def write_genome_from_vcam(ref_path,vcam,sample,out_dir,
 # rs is the chrom regions that will be written to VCF/fasta
 # ks is the chroms that will get SVs
 # seqs is the reference dict
-def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
+def germline_genome(ref_path,mei_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
                     gen_method='fast',gz=True,write_snv_indel=False,small_cut=50,seed=None):
     if seed is not None: np.random.seed(seed)
     if gz: ext_pat,idx_pat = '.fa.gz','i'
@@ -548,6 +548,17 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
     print('loading all ref seq into memory for TRA generation')
     seqs = {k: ru.read_fasta_chrom(ref_path, k) for k in rs}
     vcam = {k:{} for k in mut_p} #get the layers used for generation: 1,2,3
+
+    #----------------------------------------------------------------------
+    mei  = {}
+    if mei_path is not None:
+        for fasta in mei_path.split(','):
+            m = ru.read_fasta(fasta)
+            for k in m:
+                if k not in mei: mei[k]  = m[k]
+                else:            mei[k] += m[k]
+    #----------------------------------------------------------------------
+
     # --------------------------------------------------------------------------------------------
     M,G,T,loss,gain,rate = {},{},{},{},{},{}  # generate non-overlapping regions for SVs in layer 2 of mut_p
     for k in rs:
@@ -617,7 +628,12 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
             print('L2:generating disjoint pos list for DEL, DUP, INV SVs')
             # (1) apply  INS::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
             if 'INS' in M[k]:
-                ins_vca = vu.gen_var_calls(seqs,k,'INS',M[k]['INS'],G[k]['INS'])  # del_pos
+                if len(mei)>0:
+                    ins_seqs = vu.select_meis(ins=M[k]['INS'],mei=mei)
+                    ins_vca = vu.gen_var_calls(seqs,k,'INS',M[k]['INS'],G[k]['INS'],
+                                               insert_seqs=ins_seqs)
+                else:
+                    ins_vca = vu.gen_var_calls(seqs,k,'INS',M[k]['INS'],G[k]['INS'])  # ins_pos
                 print('L2:applied %s INS mean-len=%s SVs to seq %s' % \
                       (len(ins_vca), vu.get_mean_size(M[k]['INS']), k))
             # (2) apply  DEL::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -774,7 +790,7 @@ def germline_genome(ref_path,out_dir,rs,ks,mut_p,loss_wcu,gain_wcu,gene_map,
     return sample,vcam,loss,gain,rate
 
 #somatic workflow that generates heterogenious data through a CSC or sub clonal model
-def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene_map,
+def somatic_genomes(ref_path,mei_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene_map,
                     gen_method='fast',gz=True,clean=True,gen_center=False,write_snv_indel=False,
                     small_cut=50,clone_tree_path=None,clone_tree_params=None,aneuploidy=None,seed=None):
     if seed is not None: np.random.seed(seed)
@@ -805,6 +821,16 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
     vcf_out_path = out_dir+'/'+sample+'.somatic_S0.vcf'     #final somatic VCF only has novel somatic calls?
     som_fa_map   = {clone:out_dir+'/'+clone for clone in CT.nodes}
     # --------------------------------------------------------------------------------------------
+
+    #----------------------------------------------------------------------
+    mei  = {}
+    if mei_path is not None:
+        for fasta in mei_path.split(','):
+            m = ru.read_fasta(fasta)
+            for k in m:
+                if k not in mei: mei[k]  = m[k]
+                else:            mei[k] += m[k]
+    #----------------------------------------------------------------------
 
     M,G,T,rate = {},{},{} ,{} # generate non-overlapping regions for SVs in layer 2 of mut_p
     for k in gs:
@@ -953,10 +979,17 @@ def somatic_genomes(ref_path,out_dir,sample,gs,vcam,mut_p,loss_wcu,gain_wcu,gene
             print('L2:generating disjoint pos list for DEL, DUP, INV SVs')
             # (1) apply  INS::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
             if 'INS' in M[k]:
-                part_map   = vu.partition_pos(M[k]['INS'],len(CT.nodes),prop=CT.mut_prop(),index_only=True)
-                allele_map = vu.gen_clone_allele_map(part_map,CT)
-                ins_vca = vu.gen_var_calls(seqs,k,'INS',M[k]['INS'],G[k]['INS'],
-                                           allele_map=allele_map,ref_path=ref_path)  # del_pos
+                if len(mei)>0:
+                    ins_seqs = vu.select_meis(ins=M[k]['INS'],mei=mei)
+                    part_map   = vu.partition_pos(M[k]['INS'],len(CT.nodes),prop=CT.mut_prop(),index_only=True)
+                    allele_map = vu.gen_clone_allele_map(part_map,CT)
+                    ins_vca = vu.gen_var_calls(seqs,k,'INS',M[k]['INS'],G[k]['INS'],
+                                               insert_seqs=ins_seqs,allele_map=allele_map,ref_path=ref_path)  # ins_pos
+                else:
+                    part_map   = vu.partition_pos(M[k]['INS'],len(CT.nodes),prop=CT.mut_prop(),index_only=True)
+                    allele_map = vu.gen_clone_allele_map(part_map,CT)
+                    ins_vca = vu.gen_var_calls(seqs,k,'INS',M[k]['INS'],G[k]['INS'],
+                                               allele_map=allele_map,ref_path=ref_path)  # del_pos
                 print('L2:applied %s INS mean-len=%s SVs to seq %s' % \
                       (len(ins_vca), vu.get_mean_size(M[k]['INS']), k))
             # (2) apply  DEL::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
