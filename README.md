@@ -1,8 +1,8 @@
 ![GitHub All Releases](https://img.shields.io/github/downloads/timothyjamesbecker/somacx/total.svg) [![DOI](https://zenodo.org/badge/185091540.svg)](https://zenodo.org/badge/latestdoi/185091540) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-![Alt text](images/somacx_logo.png?raw=true "somacx") <br>
-## A pathway based somatic genome generation framework
+![Alt text](images/somacx_logo.png?raw=true "somacx")
+## A complex generative genome modeling framework
 Copyright (C) 2020-2024 Timothy James Becker
-![Alt text](images/clone_tree.png?raw=true "somacx") <br>
+![Alt text](images/clone_tree_inv.png?raw=true "somacx") <br>
 
 
 ## Requirements
