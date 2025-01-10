@@ -11,7 +11,7 @@ python 3.10+, cython 0.29+, pysam 0.15+, numpy 1.18+ or<br>
 python 2.7.11+, cython 0.29+, pysam 0.15+, numpy 1.18+ (python2 is now untested)
 ## PIP Installation
 ```bash
-python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.2/somacx-0.1.2.tar.gz
+python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.3/somacx-0.1.3.tar.gz
 ```
 
 ## Docker Installation
