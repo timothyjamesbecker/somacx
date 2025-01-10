@@ -246,7 +246,7 @@ class CloneTree:
 
 # spooling ensures you are only loading one seq into memory at a time
 # in combination with single seq loading and fecthing for TRA
-# this should lower memory usaged from the germline workflow
+# this should lower memory usage from the germline workflow
 # by ~ 6GB for human genomes due to ref=3GB and mut2-3GB
 # som_fa_map = {'NA12892_0':'/data/NA12892_0'}
 # clone 0 chr1 ploidy 1 fasta will be: /data/NA12892_0.1.chr1.fa
