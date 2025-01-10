@@ -51,7 +51,71 @@ yeild a balanced subclonal topology
 alleles of the lowest frequency present
 
 ## Advanced JSON Usage
-``JSON file format API coming soon...``
+The full distribution for a somatic genome generation will contain germline distribution parameters. Together the default
+human JSON file called full.hg38.json.gz contains the following data slots (keys in JSON nomenclature):<br><br>
+#### full.hg38.json.gz (all distributions packed up into one file)
+gene_map `` - a JSON object used for gene symbol coordinates (has seq, gene and wcu keys for query)``<br><br>
+g_var_map``- a JSON object used for linked and unlinked germline multi-nucleotide and structural variation 
+(type/size/frequency)``<br><br>
+s_var_map -`` a JSON object used for linke and unlinked somatic germlin multi-nucleotide and structural variation
+(type/size/frequency)``<br><br>
+clone_tree ``- a JSON object that defines the structure of the simulated clone tree in the somaic genome generation 
+phase``<br><br>
+somatic_aneuploidy ``- the multinomial distribution for each chromosome to generate aneuploidy (abnormal number
+of chromosomes)``<br><br>
+wcus (weighted class units below) ``- JSON objects with chromosomes as keys with arrays for each chromosome containing:
+[start, end, length, {class_id:genomic_id}]. class_id are the g1kp3, onco, svmask, mitcp, mmej, nhej, apot identifiers and 
+genomic_id are a gene SYMBOL or other unique genomic region id``<br><br>
+germline_[genelist]_loss_wcu(s)``- g1kp3, onco, svmask, mitcp, mmej, nhej, apot gene list based ranges that
+will become the positional distributions for germline loss generation (for types like DEL, INV, TRA, etc)``<br><br>
+germline_[genelist]_gain_wcu(s)``- g1kp3, onco, svmask, mitcp, mmej, nhej, apot gene list based ranges that
+will become the positional distributions for germline gain generation (for types like DUP, etc)``<br><br>
+somatic_[genelist]_loss_wcu(s)``- g1kp3, onco, svmask, mitcp, mmej, nhej, apot gene list based ranges that
+will become the positional distributions for somatic loss generation (for types like DEL, INV, TRA, etc)``<br><br>
+somatic_[genelist]_gain_wcu(s)``- g1kp3, onco, svmask, mitcp, mmej, nhej, apot gene list based ranges that
+will become the positional distributions for somatic gain generation (for types like DUP, etc)``<br><br>
+
+More details on the individual JSON objects: <br>
+
+#### gene_map
+``allows query by sequence name or by gene symbol. seq: will be each chromosome followed by an array of all genes and start,end
+coordinates so that all genes for a given chromosome can easily be integrated into gain or loss distribtions. gene: are the offciale gene symbols
+such as DDX11L1, TP53, etc and will resolve to one or more genomic coordinates.``<br>
+
+#### g_var_map, s_var_map
+`` keys denote the layer of the variation where 1 will be a MNV before layer 2 (SV layer) these SNV will be linked to the SVs
+that are intersecting, (such as DUP that would also duplicate the SNV) wheras layer 3 MNVs are applied after the SV events which
+will make them unlinked (such as a DUP with one copy containing a MNV but the other doesn't). In layer 2 (SV layer) there are
+parameters that govern the distributions of each type detailed further:``
+
+DUP ``l:n - distribution of the lengths (chance of a SV of lenght l per bp of genome). CN - number of copies allowed (2,..,8)
+default. CNP - probabilty of each copy number. TYPE - DUP subtypes: TANDEM, DISPERSED, INVERTED. TP - probabilty of each 
+type (type distribution)``<br>
+TRA ``l:n - distribution of the lengths (chance of a SV of lenght l per bp of genome). TYPE - subtype for traslocations:
+DEL or INS which are balanced or unbalanced. TP - is the type distribution for TRA``<br>
+INV ``l:n - distribution of the lengths (chance of a SV of lenght l per bp of genome). TYPE - is the subtype: PERFECT or
+COMPLEX. PERFECT have very simple signatures (perfect DNA repair) and reverse complement. COMPLES on the other hand
+have DEL and DUP posisble on the break ends as well as nove INS inside the INV SV call region. s:p - sets the complex INV
+subtype DEL/DUP/INS length distribution (50bp,100bp,etc)``<br>
+DEL ``l:n - distribution of the lengths (chance of a SV of lenght l per bp of genome).``<br>
+INS  ``l:n - distribution of the lengths (chance of a SV of lenght l per bp of genome).``
+
+#### clone_tree
+``clone tree keeps the same of the somatic evolution in tree form but is used practically to spool the FASTA files and
+generate each clone. The root key keeps track of the genome name (sample name) while the tree key keeps the nested JSON tree 
+structure for each clone which will be nodes. Alive is an array that determines if a specific clone will be generated
+which is useful for simulation of ancesters that dropped out from selective pressure. freq is an array that keeps track of
+the number of ancestors which is used to allocate variation (used for allele frequency generation)``<br>
+
+
+
+
+
+
+
+
+
+
 
 ## Web Browser JSON Editor
 ``Visual web broswer JSON editor is in development``
@@ -59,6 +123,28 @@ alleles of the lowest frequency present
 ## Python API
 ``gene_effects, read_utils, variant_utils and sim python modules offer much greater flexibility in simulating mammalian genomes
 ``
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
