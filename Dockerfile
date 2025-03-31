@@ -27,4 +27,4 @@ RUN python3 -m pip install pip --upgrade pip
 RUN python3 -m pip install cython
 RUN python3 -m pip install numpy
 RUN python3 -m pip install pysam
-RUN python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.2/somacx-0.1.2.tar.gz
+RUN python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.3/somacx-0.1.3.tar.gz
