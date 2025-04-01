@@ -39,7 +39,7 @@ setup(
     description='pathway based somatic genome generation framework',
     classifiers=['Intended Audience :: Developers',
                  'License :: GPL 3 License',
-                 'Programming Language :: Python :: 3.6',
+                 'Programming Language :: Python :: 3.10+',
                  'Programming Language :: Cython',
                  'Programming Language :: C',
                  'Operating System :: POSIX',
