@@ -1,4 +1,6 @@
-FROM ubuntu:bionic
+FROM ubuntu:focal-20250404
+LABEL org.opencontainers.image.authors="timothyjamesbecker@gmail.com"
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
 build-essential \
 g++ \
@@ -6,9 +8,9 @@ gfortran \
 git \
 wget \
 nano \
-libffi6 \
+libffi7 \
 libffi-dev \
-libssl1.0.0 \
+libssl1.1 \
 libssl-dev \
 libblas3 \
 libblas-dev \
@@ -24,7 +26,8 @@ python3-dev \
 python3-pip
 RUN apt-get autoremove
 RUN python3 -m pip install pip --upgrade pip
-RUN python3 -m pip install cython
-RUN python3 -m pip install numpy
-RUN python3 -m pip install pysam
+RUN python3 -m pip install -Iv cython==3.0.12 #latest working build versions here
+RUN python3 -m pip install -Iv numpy==1.24.4  #latest working build versions here
+RUN python3 -m pip install -Iv pysam==0.23.0  #latest working build versions here
 RUN python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.3/somacx-0.1.3.tar.gz
+RUN unbuffered generator.py -h && echo "somacx-0.1.3 install was successful!"

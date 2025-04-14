@@ -32,7 +32,7 @@ extensions = [Extension('utils',
 setup(
     name='somacx',
     version=get_version(),
-    author='Timothy Becker',
+    author='Timothy James Becker',
     author_email='timothyjamesbecker@gmail.com',
     url='https://github.com/timothyjamesbecker/somacx',
     license='GPL 3 License',

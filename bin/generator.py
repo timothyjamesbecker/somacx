@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-#Timothy James Becker, PhD candidate, UCONN 01/10/2017-04/25/2020
-#soMaCX: Somatic Complex SV Diploid Genome Generator, produces disjoint SVs on demand and then
+#Timothy James Becker, PhD 01/10/2017-04/07/2025
+#somaCX: Somatic Complex SV Diploid Genome Generator, produces disjoint SVs on demand and then
 #allows for secondary SV layers to be introduced using several parameters
 #supported types are INS, DEL, SUB, TANDEM DUP, DISPERSED DUP, INV DUP, INV,COMPLEX INV, TRA (chroma->chromB)
 #each of these can have inner layers of INS, DEL, DUP, ect using a distribution and
 #a separate breakpoint probability that allows for easily setting DEL, INS directly on
 #DUP or INV break ends, thereby providing a realiable, distribution-based test platform for simulation
 #as FASTA and VCF formated files provide easy benchmarking
+
 
 import argparse
 import os
@@ -133,7 +134,7 @@ def write_complex_generator_json(json_path,in_dir,gene_map,g_var_map,g_loss_pat,
             return True
         return False
 
-des = """soMaCX: Generator v0.1.3, 01/01/2017-04/30/2020 Timothy James Becker"""
+des = """somaCX: Generator v0.1.3, 01/01/2017-04/11/2025 Timothy James Becker"""
 parser = argparse.ArgumentParser(description=des)
 parser.add_argument('-r','--ref_path',type=str,help='reference fasta input file\t[None]')
 parser.add_argument('-m','--mei_path',type=str,help='comma-seperated list of mei FASTA\t[None]')
@@ -154,6 +155,7 @@ parser.add_argument('--cov',type=str,help='>2 total coverage/ploidy that will be
 parser.add_argument('--small_cut',type=int,help='filter out variants that are less than this size in bp\t[1]')
 parser.add_argument('--seed',type=int,help='repeatable random seed for generation\t[None]')
 parser.add_argument('--verbose',action='store_true',help='output more information to stdout\t[False]')
+parser.add_argument('--germ',action='store_true',help='only create a germline genome fasta/vcf pair\t[False]')
 args = parser.parse_args()
 
 print('starting: \n'+des+'\n')
@@ -381,65 +383,67 @@ if g1k_sample is not None:
     sample,vcam,g_loss,g_gain,g_rate = sim.write_genome_from_vcam(ref_path,vcam,g1k_sample,out_dir,
                                                                   write_snv_indel=write_snv_indel,small_cut=small_cut,gz=gz)
 
-#default weighted class units for somatic regions that include onco genes and nhej pathways...
-somatic_var_map = vu.read_json_mut_map(out_dir+'/meta/s_var_map.json')
-mnv_wcu = vu.vcam_to_wcu(vcam[1],0.0,'germ')
-sv_wcu  = vu.vcam_to_wcu(vcam[2],0.0,'germ')
-s_loss_raw = {g.rsplit('somatic_')[-1].rsplit('_loss_wcu.json')[0]:vu.read_json_wcu(g) \
-              for g in glob.glob(out_dir + '/meta/somatic_*_loss_wcu.json')}
 
-s_loss_raw['germ'] = sv_wcu
-loss_wcu = vu.merge_wcu(s_loss_raw)
-#functional hits can increase mut_p rates, aneuploidy
+if not args.germ:
+    #default weighted class units for somatic regions that include onco genes and nhej pathways...
+    somatic_var_map = vu.read_json_mut_map(out_dir+'/meta/s_var_map.json')
+    mnv_wcu = vu.vcam_to_wcu(vcam[1],0.0,'germ')
+    sv_wcu  = vu.vcam_to_wcu(vcam[2],0.0,'germ')
+    s_loss_raw = {g.rsplit('somatic_')[-1].rsplit('_loss_wcu.json')[0]:vu.read_json_wcu(g) \
+                  for g in glob.glob(out_dir + '/meta/somatic_*_loss_wcu.json')}
 
-s_gain_raw = {g.rsplit('somatic_')[-1].rsplit('_gain_wcu.json')[0]:vu.read_json_wcu(g) \
-              for g in glob.glob(out_dir + '/meta/somatic_*_gain_wcu.json')}
-gain_wcu['germ'] = sv_wcu
-gain_wcu = vu.merge_wcu(s_gain_raw)
+    s_loss_raw['germ'] = sv_wcu
+    loss_wcu = vu.merge_wcu(s_loss_raw)
+    #functional hits can increase mut_p rates, aneuploidy
 
-for k in rs:
-    if k not in loss_wcu: loss_wcu[k] = {}
-    if k not in gain_wcu: gain_wcu[k] = {}
+    s_gain_raw = {g.rsplit('somatic_')[-1].rsplit('_gain_wcu.json')[0]:vu.read_json_wcu(g) \
+                  for g in glob.glob(out_dir + '/meta/somatic_*_gain_wcu.json')}
+    gain_wcu['germ'] = sv_wcu
+    gain_wcu = vu.merge_wcu(s_gain_raw)
 
-#sim.somatic_genomes test case-----------
-aneuploidy = vu.read_json_aneuploidy(out_dir+ '/meta/somatic_aneuploidy.json')
-mut_p,gs = somatic_var_map,S
-print('starting initialization of somatic clonal tree using params:')
-print('sample=%s clone_tree_params=%s clone_tree_path=%s'%(sample,clone_tree_params,clone_tree_path))
-CT,M,T,s_vcam,s_loss,s_gain,s_rate,s_over = sim.somatic_genomes(ref_path,mei_path,out_dir,sample,gs,vcam,
-                                                                somatic_var_map,loss_wcu,gain_wcu,gene_map,
-                                                                gen_method=method,gz=gz,clean=clean,
-                                                                gen_center=center,
-                                                                clone_tree_path=clone_tree_path,
-                                                                clone_tree_params=clone_tree_params,
-                                                                aneuploidy=aneuploidy,
-                                                                write_snv_indel=write_snv_indel,
-                                                                small_cut=small_cut,seed=seed)
-# print('germline generation enrichment targets:')
-# sim.display_rlg(ks,g_rate,g_loss,g_gain)
-# print('somatic generation enrichment targets:')
-# sim.display_rlg(ks,s_rate,s_loss,s_gain)
-"""
-#loss
-driver,loss_types = 'mitcp',['DEL','TRA','INS','INV']
-g_total = {}
-for k in g_loss:
-    if g_loss[k].has_key(driver):
-        v = g_loss[k][driver][k]
-        for t in loss_types:
-            if v.has_key(t) and v[t][0]>0:
-                if g_total.has_key(k): g_total[k] += 1
-                else:                  g_total[k]  = 1
+    for k in rs:
+        if k not in loss_wcu: loss_wcu[k] = {}
+        if k not in gain_wcu: gain_wcu[k] = {}
 
-s_total = {}
-for k in s_loss:
-    if s_loss[k].has_key(driver):
-        v = s_loss[k][driver][k]
-        for t in loss_types:
-            if v.has_key(t) and v[t][0]>0:
-                if s_total.has_key(k): s_total[k] += 1
-                else:                  s_total[k]  = 1
-
-print('somatic driver %s loss to germline loss is %s:%s'%\
-      (driver,sum([s_total[k] for k in s_total]),sum([g_total[k] for k in g_total])))
-"""
+    #sim.somatic_genomes test case-----------
+    aneuploidy = vu.read_json_aneuploidy(out_dir+ '/meta/somatic_aneuploidy.json')
+    mut_p,gs = somatic_var_map,S
+    print('starting initialization of somatic clonal tree using params:')
+    print('sample=%s clone_tree_params=%s clone_tree_path=%s'%(sample,clone_tree_params,clone_tree_path))
+    CT,M,T,s_vcam,s_loss,s_gain,s_rate,s_over = sim.somatic_genomes(ref_path,mei_path,out_dir,sample,gs,vcam,
+                                                                    somatic_var_map,loss_wcu,gain_wcu,gene_map,
+                                                                    gen_method=method,gz=gz,clean=clean,
+                                                                    gen_center=center,
+                                                                    clone_tree_path=clone_tree_path,
+                                                                    clone_tree_params=clone_tree_params,
+                                                                    aneuploidy=aneuploidy,
+                                                                    write_snv_indel=write_snv_indel,
+                                                                    small_cut=small_cut,seed=seed)
+    # print('germline generation enrichment targets:')
+    # sim.display_rlg(ks,g_rate,g_loss,g_gain)
+    # print('somatic generation enrichment targets:')
+    # sim.display_rlg(ks,s_rate,s_loss,s_gain)
+    """
+    #loss
+    driver,loss_types = 'mitcp',['DEL','TRA','INS','INV']
+    g_total = {}
+    for k in g_loss:
+        if g_loss[k].has_key(driver):
+            v = g_loss[k][driver][k]
+            for t in loss_types:
+                if v.has_key(t) and v[t][0]>0:
+                    if g_total.has_key(k): g_total[k] += 1
+                    else:                  g_total[k]  = 1
+    
+    s_total = {}
+    for k in s_loss:
+        if s_loss[k].has_key(driver):
+            v = s_loss[k][driver][k]
+            for t in loss_types:
+                if v.has_key(t) and v[t][0]>0:
+                    if s_total.has_key(k): s_total[k] += 1
+                    else:                  s_total[k]  = 1
+    
+    print('somatic driver %s loss to germline loss is %s:%s'%\
+          (driver,sum([s_total[k] for k in s_total]),sum([g_total[k] for k in g_total])))
+    """
