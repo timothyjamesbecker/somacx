@@ -30,4 +30,4 @@ RUN python3 -m pip install -Iv cython==3.0.12 #latest working build versions her
 RUN python3 -m pip install -Iv numpy==1.24.4  #latest working build versions here
 RUN python3 -m pip install -Iv pysam==0.23.0  #latest working build versions here
 RUN python3 -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.3/somacx-0.1.3.tar.gz
-RUN unbuffered generator.py -h && echo "somacx-0.1.3 install was successful!"
+RUN generator.py -h && echo "somacx-0.1.3 install was successful!"
