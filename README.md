@@ -21,7 +21,7 @@ Copyright (C) 2020-2025 Timothy James Becker
 ## Installation
 
 ### Pip Installation
-Requirements: python 3.10+, cython 0.29+, pysam 0.15+, numpy 1.18+<br>
+Requirements: python==3.10, cython==3.0.12, numpy==1.24.4, pysam==0.23.0<br>
 Instructions: use the pip command line as shown below from the current release
 ```bash
 python -m pip install https://github.com/timothyjamesbecker/somacx/releases/download/0.1.3/somacx-0.1.3.tar.gz
@@ -58,7 +58,7 @@ generator.py -r /data/hg38.fa -j hg38 -C chr11,chr22,chrX -o /data/out_dir --mod
 ```
 <b>Argment Details:</b><br>
 
-<b>-r</b> the reference fasta file such as GRCh38/Hg38, hg19/human_g1k_v37decoy, the user will need to download this file and then pass its full path in this argument<br>
+<b>-r</b> the reference fasta file such as GRCh38/Hg38, hg19/human_g1k_v37decoy, the user will need to download this file and then pass its full path in this argument. It can be either fasta or fa.gz. For example you can use this [reference](https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta.gz): <br>
 
 <b>-j</b> the full JSON control file which includes SV type and sizes rates (including separate linked versus unlinked SNV/MNVs), 
 A gene map such as refGene.txt.gz, encoded weighted gene list or mask files which we absract to the WCU data structure that governs 
